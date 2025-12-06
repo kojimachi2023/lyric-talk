@@ -27,6 +27,8 @@ packages = ["src"]
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.5.0",
 ]
 
@@ -36,3 +38,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=src --cov-branch --cov-report=term -n auto"
+python_files = "test_*.py"
+testpaths = "tests"
