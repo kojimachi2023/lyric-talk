@@ -1,0 +1,17 @@
+{
+  "name": "lyric-talk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.22.0",
+  "dependencies": {
+    "@pimzino/spec-workflow-mcp": "^2.1.0",
+    "@upstash/context7-mcp": "^1.0.31"
+  }
+}
