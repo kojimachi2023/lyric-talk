@@ -1,0 +1,24 @@
+{
+  "servers": {
+    "context7": {
+      "command": "pnpm",
+      "args": ["exec", "context7-mcp"]
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant"
+      ]
+    },
+
+    "spec-workflow": {
+      "command": "pnpm",
+      "args": ["exec", "spec-workflow-mcp", "./"]
+    }
+  }
+}

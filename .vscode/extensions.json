@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "mhutchie.git-graph",
+    "github.copilot-chat",
+    "bierner.markdown-mermaid",
+    "shd101wyy.markdown-preview-enhanced",
+    "davidanson.vscode-markdownlint",
+    "esbenp.prettier-vscode",
+    "github.copilot",
+    "charliermarsh.ruff"
+  ]
+}
