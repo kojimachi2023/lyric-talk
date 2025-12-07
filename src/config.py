@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
 
     # 文脈考慮型埋め込みに使用するtransformerモデル
-    transformer_model: str = "cl-tohoku/bert-base-japanese-v3"
+    transformer_model: str = "cl-nagoya/ruri-v3-310m"
 
     # 隠れ状態抽出レイヤー（-1は最終層）
     hidden_layer: int = -1
@@ -48,11 +48,16 @@ class Settings(BaseSettings):
         "NUM",  # 数詞
     ]
 
-    # ChromaDBの永続化パス
-    chromadb_path: str = ".chromadb"
+    # ChromaDBの永続化パス（テスト時は一時ディレクトリに上書き可能）
+    chromadb_path: str = "chroma_db"
 
-    # ChromaDBコレクション名
+    # ChromaDBコレクション名のプレフィックス
     chromadb_collection: str = "lyric_embeddings"
+
+    # ChromaDBコレクション名にタイムスタンプを付与するか
+    # True: 毎回新しいコレクションを作成（前回データは残らない）
+    # False: 固定名のコレクションを再利用（前回データが残る）
+    chromadb_use_timestamp: bool = True
 
 
 # シングルトンインスタンス

@@ -5,11 +5,32 @@
 一元管理し、transformersモデルの読み込みを効率的にモック化する。
 """
 
+import tempfile
 from unittest.mock import Mock
 
 import pytest
 import spacy
 import torch
+
+from src.config import settings
+
+
+@pytest.fixture(scope="function", autouse=True)
+def temp_chromadb_path():
+    """
+    テスト用の一時ChromaDBディレクトリ
+
+    各テスト関数で一時ディレクトリを作成し、テスト終了後にクリーンアップ。
+    autouse=Trueで全テストに自動適用。
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # 元の設定を保存
+        original_path = settings.chromadb_path
+        # 一時ディレクトリに変更
+        settings.chromadb_path = temp_dir
+        yield temp_dir
+        # 元に戻す
+        settings.chromadb_path = original_path
 
 
 @pytest.fixture(scope="session")

@@ -2,25 +2,12 @@
 文脈考慮型埋め込みを使用したマッチングのテスト
 """
 
-import tempfile
 from unittest.mock import Mock, patch
 
-import pytest
 import torch
 
-from src.config import settings
 from src.lyric_index import LyricIndex
 from src.matcher import Matcher
-
-
-@pytest.fixture
-def temp_chromadb_path():
-    """一時的なChromaDBパス"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = settings.chromadb_path
-        settings.chromadb_path = tmpdir
-        yield tmpdir
-        settings.chromadb_path = original_path
 
 
 class TestContextualMatching:
@@ -112,8 +99,8 @@ class TestContextualMatching:
         """
         ChromaDBの永続化テスト
 
-        同じパスで再度LyricIndexを作成した場合、
-        既存のコレクションが使用されることを確認
+        タイムスタンプ付きコレクション名を使用することで、
+        毎回新しいコレクションが作成され、前回のデータが残らないことを確認
         """
         mock_model_class.return_value = mock_model
 
@@ -121,15 +108,18 @@ class TestContextualMatching:
 
         # 最初のインデックス作成
         lyric_index1 = LyricIndex.from_lyrics(lyrics, nlp=nlp)
+        collection_name1 = lyric_index1.chroma_collection.name
         count1 = lyric_index1.chroma_collection.count()
 
-        # 2回目のインデックス作成（同じコレクション名）
+        # 2回目のインデックス作成（異なるタイムスタンプのコレクション名）
         lyric_index2 = LyricIndex.from_lyrics(lyrics, nlp=nlp)
+        collection_name2 = lyric_index2.chroma_collection.name
         count2 = lyric_index2.chroma_collection.count()
 
-        # コレクションが再利用され、トークンが追加される
-        # （同じ歌詞でも重複して追加される）
-        assert count2 >= count1
+        # 異なるコレクション名が使用されることを確認
+        assert collection_name1 != collection_name2
+        # 両方とも同じトークン数（重複なし）
+        assert count1 == count2
 
     @patch("src.token_alignment.AutoModel.from_pretrained")
     def test_empty_lyrics_with_contextual(

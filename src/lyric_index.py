@@ -7,6 +7,7 @@ ChromaDBを使用して文脈考慮型埋め込みを保存・検索
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import chromadb
@@ -191,6 +192,7 @@ class LyricIndex:
 
     def _init_chromadb(self) -> None:
         """ChromaDBを初期化"""
+
         # 永続化ディレクトリを作成
         persist_dir = Path(settings.chromadb_path)
         persist_dir.mkdir(parents=True, exist_ok=True)
@@ -198,15 +200,22 @@ class LyricIndex:
         # ChromaDBクライアントを初期化
         self.chroma_client = chromadb.PersistentClient(path=str(persist_dir))
 
+        # コレクション名を生成（タイムスタンプ付きか固定名）
+        if settings.chromadb_use_timestamp:
+            # タイムスタンプ付きコレクション名で毎回新規作成
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            collection_name = f"{settings.chromadb_collection}_{timestamp}"
+        else:
+            # 固定名のコレクションを使用（既存があれば再利用）
+            collection_name = settings.chromadb_collection
+
         # コレクションを取得または作成
         try:
-            self.chroma_collection = self.chroma_client.get_collection(
-                name=settings.chromadb_collection
-            )
+            self.chroma_collection = self.chroma_client.get_collection(name=collection_name)
         except Exception:
             # コレクションが存在しない場合は新規作成
             self.chroma_collection = self.chroma_client.create_collection(
-                name=settings.chromadb_collection,
+                name=collection_name,
                 metadata={"description": "Contextual embeddings for lyric tokens"},
             )
 
