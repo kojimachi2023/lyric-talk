@@ -26,8 +26,33 @@ class Settings(BaseSettings):
     # 類似語検索の上限数
     max_similar_words: int = 5
 
-    # sentence-transformersのモデル名
+    # sentence-transformersのモデル名（後方互換性のため残す）
     embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+
+    # 文脈考慮型埋め込みに使用するtransformerモデル
+    transformer_model: str = "cl-tohoku/bert-base-japanese-v3"
+
+    # 隠れ状態抽出レイヤー（-1は最終層）
+    hidden_layer: int = -1
+
+    # プーリング方式（"mean": 平均プーリング, "first": 最初のトークン, "last": 最後のトークン）
+    pooling_strategy: str = "mean"
+
+    # 内容語の品詞リスト（これらの品詞のみ意味的類似マッチング対象）
+    content_pos_tags: list[str] = [
+        "NOUN",  # 名詞
+        "VERB",  # 動詞
+        "ADJ",  # 形容詞
+        "ADV",  # 副詞
+        "PROPN",  # 固有名詞
+        "NUM",  # 数詞
+    ]
+
+    # ChromaDBの永続化パス
+    chromadb_path: str = ".chromadb"
+
+    # ChromaDBコレクション名
+    chromadb_collection: str = "lyric_embeddings"
 
 
 # シングルトンインスタンス

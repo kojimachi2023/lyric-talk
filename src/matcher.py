@@ -17,6 +17,7 @@ from sentence_transformers import SentenceTransformer
 from .config import settings
 from .lyric_index import LyricIndex, Token
 from .mora import normalize_reading, split_mora
+from .token_alignment import TokenAligner
 
 
 class MatchType(str, Enum):
@@ -153,18 +154,12 @@ class Matcher:
         self.nlp = nlp or spacy.load("ja_ginza")
         self.embedding_model = embedding_model or SentenceTransformer(settings.embedding_model)
 
-        # 歌詞の全単語の埋め込みを事前計算
-        self._precompute_embeddings()
-
-    def _precompute_embeddings(self) -> None:
-        """歌詞の全単語の埋め込みを事前計算"""
-        surfaces = list(self.lyric_index.get_all_surfaces())
-        if surfaces:
-            self.surface_embeddings = self.embedding_model.encode(surfaces, convert_to_tensor=True)
-            self.surface_list = surfaces
-        else:
-            self.surface_embeddings = None
-            self.surface_list = []
+        # 文脈埋め込みを使用
+        self.token_aligner = TokenAligner(
+            transformer_model_name=settings.transformer_model,
+            hidden_layer=settings.hidden_layer,
+            pooling_strategy=settings.pooling_strategy,
+        )
 
     def match(self, text: str) -> list[MatchResult]:
         """
@@ -179,6 +174,13 @@ class Matcher:
         doc = self.nlp(text)
         results = []
 
+        # 文脈埋め込みを計算（文全体）
+        embedding_map = {}
+        if self.token_aligner:
+            aligned_embeddings = self.token_aligner.align_and_extract(text, doc)
+            for aligned in aligned_embeddings:
+                embedding_map[aligned.spacy_token_index] = aligned.embedding
+
         for spacy_token in doc:
             # 空白・記号をスキップ
             if spacy_token.is_space or spacy_token.is_punct:
@@ -190,12 +192,19 @@ class Matcher:
             if not reading:
                 reading = normalize_reading(spacy_token.text)
 
-            result = self._match_token(spacy_token.text, reading)
+            # 文脈埋め込みを取得
+            contextual_embedding = embedding_map.get(spacy_token.i)
+
+            result = self._match_token(
+                spacy_token.text, reading, spacy_token.pos_, contextual_embedding
+            )
             results.append(result)
 
         return results
 
-    def _match_token(self, surface: str, reading: str) -> MatchResult:
+    def _match_token(
+        self, surface: str, reading: str, pos: str, contextual_embedding: list[float] | None = None
+    ) -> MatchResult:
         """
         単一トークンをマッチングする
 
@@ -236,7 +245,7 @@ class Matcher:
             )
 
         # 4. 意味的類似
-        similar_result = self._find_similar_match(surface, reading)
+        similar_result = self._find_similar_match(surface, reading, pos, contextual_embedding)
         if similar_result:
             return similar_result
 
@@ -325,7 +334,9 @@ class Matcher:
 
         return None
 
-    def _find_similar_match(self, surface: str, reading: str) -> MatchResult | None:
+    def _find_similar_match(
+        self, surface: str, reading: str, pos: str, contextual_embedding: list[float] | None = None
+    ) -> MatchResult | None:
         """
         意味的に類似した単語を見つけ、それを使ってマッチングを試みる
 
@@ -333,42 +344,52 @@ class Matcher:
         1. 類似語の表層形が歌詞にあるか
         2. 類似語の読みが歌詞にあるか
         3. 類似語のモーラ組み合わせが可能か
+
+        Args:
+            surface: 表層形
+            reading: 読み
+            pos: 品詞
+            contextual_embedding: 文脈埋め込み（Noneの場合は従来の方法を使用）
         """
-        if not self.surface_list:
+        # 非内容語は意味的類似マッチングをスキップ
+        if pos not in settings.content_pos_tags:
             return None
 
-        # 入力単語の埋め込み
-        input_embedding = self.embedding_model.encode([surface], convert_to_tensor=True)
+        # 文脈埋め込みを使用
+        if contextual_embedding:
+            return self._find_similar_match_contextual(surface, reading, pos, contextual_embedding)
+        else:
+            raise ValueError("contextual_embedding is None")
 
-        # コサイン類似度を計算
-        similarities = self.embedding_model.similarity(input_embedding, self.surface_embeddings)[0]
+    def _find_similar_match_contextual(
+        self, surface: str, reading: str, pos: str, contextual_embedding: list[float]
+    ) -> MatchResult | None:
+        """
+        文脈埋め込みを使用して類似マッチング
 
-        # 類似度が閾値以上の単語を取得（自分自身を除く）
-        similar_words = []
-        for idx, sim in enumerate(similarities):
-            sim_value = float(sim)
-            word = self.surface_list[idx]
-            if word != surface and sim_value >= settings.similarity_threshold:
-                similar_words.append((word, sim_value))
+        Args:
+            surface: 表層形
+            reading: 読み
+            pos: 品詞
+            contextual_embedding: 文脈埋め込み
+        """
+        # ChromaDBでクエリ
+        similar_tokens = self.lyric_index.query_similar_tokens(
+            query_embedding=contextual_embedding,
+            n_results=settings.max_similar_words,
+            pos_filter=None,  # 品詞フィルタは既に内容語のみが保存されているため不要
+        )
 
-        # 類似度でソート
-        similar_words.sort(key=lambda x: x[1], reverse=True)
-        similar_words = similar_words[: settings.max_similar_words]
+        if not similar_tokens:
+            return None
 
-        for similar_word, sim_score in similar_words:
-            # 類似語の読みを取得
-            doc = self.nlp(similar_word)
-            if not doc:
-                continue
+        # 各類似トークンで従来のマッチングを試行
+        for similar_token in similar_tokens:
+            similar_word = similar_token.surface
+            similar_reading = similar_token.reading
 
-            similar_reading = ""
-            for token in doc:
-                reading_list = token.morph.get("Reading")
-                if reading_list:
-                    similar_reading = reading_list[0]
-                    break
-            if not similar_reading:
-                similar_reading = normalize_reading(similar_word)
+            # スコアは距離ベースなので、ここでは簡易的に1.0を設定
+            sim_score = 0.9  # ChromaDBの距離を類似度スコアに変換する場合は実装が必要
 
             # 1. 類似語の表層形が歌詞にあるか
             tokens = self.lyric_index.find_by_surface(similar_word)

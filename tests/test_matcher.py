@@ -137,14 +137,7 @@ class TestMatcher:
     """Matcherクラスのテスト"""
 
     @pytest.fixture
-    def nlp(self):
-        """spaCy + GiNZAモデルをロード"""
-        import spacy
-
-        return spacy.load("ja_ginza")
-
-    @pytest.fixture
-    def simple_lyric_index(self):
+    def simple_lyric_index(self, nlp):
         """シンプルな歌詞インデックス"""
         index = LyricIndex()
         # 「愛」「を」「信じて」のトークンを追加
@@ -212,13 +205,7 @@ class TestMatcherMoraCombination:
     """モーラ組み合わせの詳細テスト"""
 
     @pytest.fixture
-    def nlp(self):
-        import spacy
-
-        return spacy.load("ja_ginza")
-
-    @pytest.fixture
-    def mora_test_index(self):
+    def mora_test_index(self, nlp):
         """モーラテスト用のインデックス"""
         index = LyricIndex()
         # 「ナ」「ル」「ホ」「ド」が取れるトークンを追加
