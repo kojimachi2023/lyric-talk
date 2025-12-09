@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import spacy
-from sentence_transformers import SentenceTransformer
 
 from .config import settings
 from .lyric_index import LyricIndex, Token
@@ -25,9 +24,6 @@ class MatchType(str, Enum):
     EXACT_SURFACE = "exact_surface"  # 表層形完全一致
     EXACT_READING = "exact_reading"  # 読み完全一致
     MORA_COMBINATION = "mora_combination"  # モーラ組み合わせ
-    SIMILAR_SURFACE = "similar_surface"  # 類似語の表層形一致
-    SIMILAR_READING = "similar_reading"  # 類似語の読み一致
-    SIMILAR_MORA = "similar_mora"  # 類似語のモーラ組み合わせ
     NO_MATCH = "no_match"  # マッチなし
 
 
@@ -58,8 +54,6 @@ class MatchResult:
     match_type: MatchType  # マッチタイプ
     matched_tokens: list[Token] = field(default_factory=list)  # マッチしたトークン
     mora_match: MoraMatch | None = None  # モーラ組み合わせの場合
-    similar_word: str | None = None  # 類似語（類似マッチの場合）
-    similarity_score: float | None = None  # 類似度スコア
 
     def to_dict(self) -> dict:
         """辞書形式に変換"""
@@ -96,12 +90,6 @@ class MatchResult:
                 ],
             }
 
-        if self.similar_word:
-            result["similar_word"] = self.similar_word
-
-        if self.similarity_score is not None:
-            result["similarity_score"] = self.similarity_score
-
         return result
 
     def get_output_text(self) -> str:
@@ -114,22 +102,17 @@ class MatchResult:
         - 意味的類似: 類似語としてマッチしたトークンの表層形
         - マッチなし: 空文字列
         """
+        # マッチなし
         if self.match_type == MatchType.NO_MATCH:
             return ""
 
+        # モーラ組み合わせの場合
         if self.match_type == MatchType.MORA_COMBINATION:
-            # モーラ組み合わせの場合、各モーラを組み合わせて出力
             if self.mora_match and self.mora_match.mora_items:
                 return "".join(item.mora for item in self.mora_match.mora_items)
             return ""
 
-        if self.match_type in (MatchType.SIMILAR_MORA,):
-            # 意味的類似のモーラ組み合わせ
-            if self.mora_match and self.mora_match.mora_items:
-                return "".join(item.source_token.surface for item in self.mora_match.mora_items)
-            return ""
-
-        # 完全一致、読み一致、意味的類似（表層形/読み）
+        # 完全一致、読み一致
         if self.matched_tokens:
             return self.matched_tokens[0].surface
 
@@ -146,25 +129,10 @@ class Matcher:
     def __init__(
         self,
         lyric_index: LyricIndex,
-        nlp: spacy.Language | None = None,
-        embedding_model: SentenceTransformer | None = None,
+        nlp: spacy.Language,
     ):
         self.lyric_index = lyric_index
-        self.nlp = nlp or spacy.load("ja_ginza")
-        self.embedding_model = embedding_model or SentenceTransformer(settings.embedding_model)
-
-        # 歌詞の全単語の埋め込みを事前計算
-        self._precompute_embeddings()
-
-    def _precompute_embeddings(self) -> None:
-        """歌詞の全単語の埋め込みを事前計算"""
-        surfaces = list(self.lyric_index.get_all_surfaces())
-        if surfaces:
-            self.surface_embeddings = self.embedding_model.encode(surfaces, convert_to_tensor=True)
-            self.surface_list = surfaces
-        else:
-            self.surface_embeddings = None
-            self.surface_list = []
+        self.nlp = nlp
 
     def match(self, text: str) -> list[MatchResult]:
         """
@@ -190,12 +158,12 @@ class Matcher:
             if not reading:
                 reading = normalize_reading(spacy_token.text)
 
-            result = self._match_token(spacy_token.text, reading)
+            result = self._match_token(spacy_token.text, reading, spacy_token.pos_)
             results.append(result)
 
         return results
 
-    def _match_token(self, surface: str, reading: str) -> MatchResult:
+    def _match_token(self, surface: str, reading: str, pos: str) -> MatchResult:
         """
         単一トークンをマッチングする
 
@@ -203,7 +171,6 @@ class Matcher:
         1. 表層形完全一致
         2. 読み完全一致
         3. モーラ組み合わせ
-        4. 意味的類似 → 上記1-3を類似語で再試行
         """
         # 1. 表層形完全一致
         tokens = self.lyric_index.find_by_surface(surface)
@@ -234,11 +201,6 @@ class Matcher:
                 match_type=MatchType.MORA_COMBINATION,
                 mora_match=mora_match,
             )
-
-        # 4. 意味的類似
-        similar_result = self._find_similar_match(surface, reading)
-        if similar_result:
-            return similar_result
 
         # マッチなし
         return MatchResult(
@@ -322,88 +284,5 @@ class Matcher:
                 source_tokens=source_tokens,
                 mora_items=mora_items,
             )
-
-        return None
-
-    def _find_similar_match(self, surface: str, reading: str) -> MatchResult | None:
-        """
-        意味的に類似した単語を見つけ、それを使ってマッチングを試みる
-
-        類似語が見つかった場合:
-        1. 類似語の表層形が歌詞にあるか
-        2. 類似語の読みが歌詞にあるか
-        3. 類似語のモーラ組み合わせが可能か
-        """
-        if not self.surface_list:
-            return None
-
-        # 入力単語の埋め込み
-        input_embedding = self.embedding_model.encode([surface], convert_to_tensor=True)
-
-        # コサイン類似度を計算
-        similarities = self.embedding_model.similarity(input_embedding, self.surface_embeddings)[0]
-
-        # 類似度が閾値以上の単語を取得（自分自身を除く）
-        similar_words = []
-        for idx, sim in enumerate(similarities):
-            sim_value = float(sim)
-            word = self.surface_list[idx]
-            if word != surface and sim_value >= settings.similarity_threshold:
-                similar_words.append((word, sim_value))
-
-        # 類似度でソート
-        similar_words.sort(key=lambda x: x[1], reverse=True)
-        similar_words = similar_words[: settings.max_similar_words]
-
-        for similar_word, sim_score in similar_words:
-            # 類似語の読みを取得
-            doc = self.nlp(similar_word)
-            if not doc:
-                continue
-
-            similar_reading = ""
-            for token in doc:
-                reading_list = token.morph.get("Reading")
-                if reading_list:
-                    similar_reading = reading_list[0]
-                    break
-            if not similar_reading:
-                similar_reading = normalize_reading(similar_word)
-
-            # 1. 類似語の表層形が歌詞にあるか
-            tokens = self.lyric_index.find_by_surface(similar_word)
-            if tokens:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_SURFACE,
-                    matched_tokens=tokens[:1],
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
-
-            # 2. 類似語の読みが歌詞にあるか
-            tokens = self.lyric_index.find_by_reading(similar_reading)
-            if tokens:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_READING,
-                    matched_tokens=tokens[:1],
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
-
-            # 3. 類似語のモーラ組み合わせが可能か
-            mora_match = self._find_mora_combination(similar_reading)
-            if mora_match:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_MORA,
-                    mora_match=mora_match,
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
 
         return None

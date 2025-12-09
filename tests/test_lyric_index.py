@@ -2,8 +2,6 @@
 lyric_index.py のテスト
 """
 
-import pytest
-
 from src.lyric_index import LyricIndex, Token
 
 
@@ -163,13 +161,6 @@ class TestLyricIndex:
 
 class TestLyricIndexFromLyrics:
     """LyricIndex.from_lyrics のテスト（spaCy依存）"""
-
-    @pytest.fixture
-    def nlp(self):
-        """spaCy + GiNZAモデルをロード"""
-        import spacy
-
-        return spacy.load("ja_ginza")
 
     def test_from_lyrics_basic(self, nlp):
         """基本的な歌詞からのインデックス構築"""

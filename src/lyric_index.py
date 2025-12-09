@@ -3,6 +3,8 @@
 spaCy + GiNZAを使用して日本語形態素解析を行う
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 import spacy
@@ -48,7 +50,11 @@ class LyricIndex:
     mora_to_tokens: dict[str, list[Token]] = field(default_factory=dict)
 
     @classmethod
-    def from_lyrics(cls, lyrics: str, nlp: spacy.Language | None = None) -> "LyricIndex":
+    def from_lyrics(
+        cls,
+        lyrics: str,
+        nlp: spacy.Language | None = None,
+    ) -> "LyricIndex":
         """
         歌詞文字列からLyricIndexを構築する
 
@@ -63,6 +69,7 @@ class LyricIndex:
             nlp = spacy.load("ja_ginza")
 
         index = cls()
+
         lines = lyrics.strip().split("\n")
 
         for line_idx, line in enumerate(lines):
@@ -71,6 +78,7 @@ class LyricIndex:
                 continue
 
             doc = nlp(line)
+
             for token_idx, spacy_token in enumerate(doc):
                 # 空白・記号をスキップ
                 if spacy_token.is_space or spacy_token.is_punct:

@@ -1,0 +1,27 @@
+{
+  // IntelliSense を使用して利用可能な属性を学べます。
+  // 既存の属性の説明をホバーして表示します。
+  // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "run lyric-talk",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "src.main",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "--lyrics",
+        "test_lyrics.txt",
+        "--text",
+        "なるほど。あそこにベンツが停まってますね。もしあなたが煙草を吸わなければ、あれくらい買えたんですよ。"
+      ],
+      "justMyCode": true
+    }
+  ]
+}

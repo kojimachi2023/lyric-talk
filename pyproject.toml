@@ -9,9 +9,16 @@ dependencies = [
     "ginza>=5.2.0",
     "ja-ginza>=5.2.0",
     "sentence-transformers>=3.0.0",
+    "transformers>=4.30.0",
+    "chromadb>=0.4.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "hatchling>=1.28.0",
+    "fugashi>=1.5.2",
+    "unidic-lite>=1.0.8",
+    "ipadic>=1.0.0",
+    "sentencepiece>=0.2.1",
+    "ollama>=0.6.1",
 ]
 
 [project.scripts]
@@ -40,6 +47,6 @@ target-version = "py312"
 select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
-addopts = "-v --cov=src --cov-branch --cov-report=term -n auto"
+addopts = "-vv --cov=src --cov-branch --cov-report=term --durations=0 -n 8"
 python_files = "test_*.py"
 testpaths = "tests"

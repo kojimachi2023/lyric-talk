@@ -63,19 +63,6 @@ class TestMatchResult:
         )
         assert result.get_output_text() == "アソコ"
 
-    def test_get_output_text_similar_surface(self):
-        """意味的類似（表層形）の場合の出力テキスト"""
-        token = Token(surface="君", reading="キミ", lemma="君", pos="NOUN")
-        result = MatchResult(
-            input_token="私",
-            input_reading="ワタシ",
-            match_type=MatchType.SIMILAR_SURFACE,
-            matched_tokens=[token],
-            similar_word="君",
-            similarity_score=0.9,
-        )
-        assert result.get_output_text() == "君"
-
     def test_get_output_text_no_match(self):
         """マッチなしの場合の出力テキスト"""
         result = MatchResult(
@@ -137,14 +124,7 @@ class TestMatcher:
     """Matcherクラスのテスト"""
 
     @pytest.fixture
-    def nlp(self):
-        """spaCy + GiNZAモデルをロード"""
-        import spacy
-
-        return spacy.load("ja_ginza")
-
-    @pytest.fixture
-    def simple_lyric_index(self):
+    def simple_lyric_index(self, nlp):
         """シンプルな歌詞インデックス"""
         index = LyricIndex()
         # 「愛」「を」「信じて」のトークンを追加
@@ -212,13 +192,7 @@ class TestMatcherMoraCombination:
     """モーラ組み合わせの詳細テスト"""
 
     @pytest.fixture
-    def nlp(self):
-        import spacy
-
-        return spacy.load("ja_ginza")
-
-    @pytest.fixture
-    def mora_test_index(self):
+    def mora_test_index(self, nlp):
         """モーラテスト用のインデックス"""
         index = LyricIndex()
         # 「ナ」「ル」「ホ」「ド」が取れるトークンを追加
@@ -259,10 +233,5 @@ class TestMatcherMoraCombination:
         results = matcher.match("あそこ")  # アソコ - 「ソ」「コ」がない
 
         assert len(results) == 1
-        # モーラ組み合わせ不可なので、意味的類似かマッチなし
-        assert results[0].match_type in (
-            MatchType.SIMILAR_SURFACE,
-            MatchType.SIMILAR_READING,
-            MatchType.SIMILAR_MORA,
-            MatchType.NO_MATCH,
-        )
+        # モーラ組み合わせ不可なのでマッチなし
+        assert results[0].match_type == MatchType.NO_MATCH
