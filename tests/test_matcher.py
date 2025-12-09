@@ -69,7 +69,7 @@ class TestMatchResult:
         result = MatchResult(
             input_token="私",
             input_reading="ワタシ",
-            match_type=MatchType.SIMILAR_SURFACE,
+            match_type=MatchType.SIMILAR,
             matched_tokens=[token],
             similar_word="君",
             similarity_score=0.9,
@@ -248,8 +248,6 @@ class TestMatcherMoraCombination:
         assert len(results) == 1
         # モーラ組み合わせ不可なので、意味的類似かマッチなし
         assert results[0].match_type in (
-            MatchType.SIMILAR_SURFACE,
-            MatchType.SIMILAR_READING,
-            MatchType.SIMILAR_MORA,
+            MatchType.SIMILAR,
             MatchType.NO_MATCH,
         )

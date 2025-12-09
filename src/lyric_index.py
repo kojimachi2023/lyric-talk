@@ -85,7 +85,7 @@ class LyricIndex:
         # 文脈埋め込みを使用する場合、ChromaDBとTokenAlignerを初期化
         index._init_chromadb()
         index.token_aligner = TokenAligner(
-            transformer_model_name=settings.transformer_model,
+            transformer_model_name=settings.embedding_model,
             hidden_layer=settings.hidden_layer,
             pooling_strategy=settings.pooling_strategy,
         )
@@ -137,7 +137,7 @@ class LyricIndex:
 
                 index.add_token(token)
 
-                # 文脈埋め込みをChromaDBに保存（内容語のみ）
+                # 文脈埋め込みをChromaDBに保存（機能語のみ）
                 if token.pos in settings.content_pos_tags and spacy_token.i in embedding_map:
                     index._add_embedding_to_chromadb(token, embedding_map[spacy_token.i])
 
@@ -216,6 +216,7 @@ class LyricIndex:
             # コレクションが存在しない場合は新規作成
             self.chroma_collection = self.chroma_client.create_collection(
                 name=collection_name,
+                configuration={"hnsw": {"space": "cosine"}},
                 metadata={"description": "Contextual embeddings for lyric tokens"},
             )
 
@@ -255,7 +256,7 @@ class LyricIndex:
         query_embedding: list[float],
         n_results: int = 5,
         pos_filter: str | None = None,
-    ) -> list[Token]:
+    ) -> list[tuple[float, Token]]:
         """
         文脈埋め込みから類似トークンを検索
 
@@ -265,7 +266,7 @@ class LyricIndex:
             pos_filter: 品詞フィルタ（Noneの場合はフィルタなし）
 
         Returns:
-            類似トークンのリスト
+            (類似度, 類似トークン)のリスト
         """
         if not self.chroma_collection:
             return []
@@ -282,19 +283,23 @@ class LyricIndex:
             where=where_filter,
         )
 
+        if not results or len(results["ids"]) == 0:
+            return []
+
         # 結果をTokenオブジェクトに変換
-        similar_tokens = []
-        if results and results["metadatas"] and results["metadatas"][0]:
-            for metadata in results["metadatas"][0]:
-                # メタデータからトークンを再構築
-                token = Token(
-                    surface=metadata["surface"],
-                    reading=metadata["reading"],
-                    lemma=metadata["lemma"],
-                    pos=metadata["pos"],
-                    line_index=metadata["line_index"],
-                    token_index=metadata["token_index"],
-                )
-                similar_tokens.append(token)
+        similar_tokens = [
+            (
+                results["distances"][0][i],
+                Token(
+                    surface=results["metadatas"][0][i]["surface"],
+                    reading=results["metadatas"][0][i]["reading"],
+                    lemma=results["metadatas"][0][i]["lemma"],
+                    pos=results["metadatas"][0][i]["pos"],
+                    line_index=results["metadatas"][0][i]["line_index"],
+                    token_index=results["metadatas"][0][i]["token_index"],
+                ),
+            )
+            for i in range(len(results["ids"][0]))
+        ]
 
         return similar_tokens

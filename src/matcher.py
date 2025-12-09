@@ -26,9 +26,7 @@ class MatchType(str, Enum):
     EXACT_SURFACE = "exact_surface"  # 表層形完全一致
     EXACT_READING = "exact_reading"  # 読み完全一致
     MORA_COMBINATION = "mora_combination"  # モーラ組み合わせ
-    SIMILAR_SURFACE = "similar_surface"  # 類似語の表層形一致
-    SIMILAR_READING = "similar_reading"  # 類似語の読み一致
-    SIMILAR_MORA = "similar_mora"  # 類似語のモーラ組み合わせ
+    SIMILAR = "similar"  # 類似語一致
     NO_MATCH = "no_match"  # マッチなし
 
 
@@ -115,22 +113,23 @@ class MatchResult:
         - 意味的類似: 類似語としてマッチしたトークンの表層形
         - マッチなし: 空文字列
         """
+        # マッチなし
         if self.match_type == MatchType.NO_MATCH:
             return ""
 
+        # モーラ組み合わせの場合
         if self.match_type == MatchType.MORA_COMBINATION:
-            # モーラ組み合わせの場合、各モーラを組み合わせて出力
             if self.mora_match and self.mora_match.mora_items:
                 return "".join(item.mora for item in self.mora_match.mora_items)
             return ""
 
-        if self.match_type in (MatchType.SIMILAR_MORA,):
-            # 意味的類似のモーラ組み合わせ
-            if self.mora_match and self.mora_match.mora_items:
-                return "".join(item.source_token.surface for item in self.mora_match.mora_items)
+        # 意味的類似の場合
+        if self.match_type in MatchType.SIMILAR:
+            if self.similar_word:
+                return self.similar_word
             return ""
 
-        # 完全一致、読み一致、意味的類似（表層形/読み）
+        # 完全一致、読み一致
         if self.matched_tokens:
             return self.matched_tokens[0].surface
 
@@ -147,16 +146,16 @@ class Matcher:
     def __init__(
         self,
         lyric_index: LyricIndex,
-        nlp: spacy.Language | None = None,
+        nlp: spacy.Language,
         embedding_model: SentenceTransformer | None = None,
     ):
         self.lyric_index = lyric_index
-        self.nlp = nlp or spacy.load("ja_ginza")
-        self.embedding_model = embedding_model or SentenceTransformer(settings.embedding_model)
+        self.nlp = nlp
+        self.embedding_model = embedding_model
 
         # 文脈埋め込みを使用
         self.token_aligner = TokenAligner(
-            transformer_model_name=settings.transformer_model,
+            transformer_model_name=settings.embedding_model,
             hidden_layer=settings.hidden_layer,
             pooling_strategy=settings.pooling_strategy,
         )
@@ -380,51 +379,16 @@ class Matcher:
             pos_filter=None,  # 品詞フィルタは既に内容語のみが保存されているため不要
         )
 
-        if not similar_tokens:
+        if not similar_tokens or len(similar_tokens) == 0:
             return None
 
-        # 各類似トークンで従来のマッチングを試行
-        for similar_token in similar_tokens:
-            similar_word = similar_token.surface
-            similar_reading = similar_token.reading
+        # 最もスコアの高い類似トークンを使用
+        best_result = similar_tokens[0]
 
-            # スコアは距離ベースなので、ここでは簡易的に1.0を設定
-            sim_score = 0.9  # ChromaDBの距離を類似度スコアに変換する場合は実装が必要
-
-            # 1. 類似語の表層形が歌詞にあるか
-            tokens = self.lyric_index.find_by_surface(similar_word)
-            if tokens:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_SURFACE,
-                    matched_tokens=tokens[:1],
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
-
-            # 2. 類似語の読みが歌詞にあるか
-            tokens = self.lyric_index.find_by_reading(similar_reading)
-            if tokens:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_READING,
-                    matched_tokens=tokens[:1],
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
-
-            # 3. 類似語のモーラ組み合わせが可能か
-            mora_match = self._find_mora_combination(similar_reading)
-            if mora_match:
-                return MatchResult(
-                    input_token=surface,
-                    input_reading=reading,
-                    match_type=MatchType.SIMILAR_MORA,
-                    mora_match=mora_match,
-                    similar_word=similar_word,
-                    similarity_score=sim_score,
-                )
-
-        return None
+        return MatchResult(
+            input_token=surface,
+            input_reading=reading,
+            match_type=MatchType.SIMILAR,
+            similar_word=best_result[1].surface,
+            similarity_score=best_result[0],
+        )

@@ -27,10 +27,7 @@ class Settings(BaseSettings):
     max_similar_words: int = 5
 
     # sentence-transformersのモデル名（後方互換性のため残す）
-    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
-
-    # 文脈考慮型埋め込みに使用するtransformerモデル
-    transformer_model: str = "cl-nagoya/ruri-v3-310m"
+    embedding_model: str = "cl-nagoya/ruri-v3-310m"
 
     # 隠れ状態抽出レイヤー（-1は最終層）
     hidden_layer: int = -1
@@ -45,6 +42,7 @@ class Settings(BaseSettings):
         "ADJ",  # 形容詞
         "ADV",  # 副詞
         "PROPN",  # 固有名詞
+        "PRON",  # 代名詞
         "NUM",  # 数詞
     ]
 
