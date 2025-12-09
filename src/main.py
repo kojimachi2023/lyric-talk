@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 
 import spacy
-from sentence_transformers import SentenceTransformer
 
 from .config import settings
 from .lyric_index import LyricIndex
@@ -52,20 +51,12 @@ def main() -> None:
         default=None,
         help=f"モーラ組み合わせの最大長（デフォルト: {settings.max_mora_length}）",
     )
-    parser.add_argument(
-        "--similarity-threshold",
-        type=float,
-        default=None,
-        help=f"意味的類似度の閾値（デフォルト: {settings.similarity_threshold}）",
-    )
 
     args = parser.parse_args()
 
     # 設定の上書き
     if args.max_mora_length is not None:
         settings.max_mora_length = args.max_mora_length
-    if args.similarity_threshold is not None:
-        settings.similarity_threshold = args.similarity_threshold
 
     # 歌詞の読み込み
     if args.lyrics:
@@ -83,9 +74,6 @@ def main() -> None:
     print("spaCy + GiNZA モデルをロード中...")
     nlp = spacy.load("ja_ginza")
 
-    print("Sentence-Transformers モデルをロード中...")
-    embedding_model = SentenceTransformer(settings.embedding_model)
-
     print("歌詞をインデックス化中...")
     lyric_index = LyricIndex.from_lyrics(lyrics, nlp=nlp)
     print(f"  トークン数: {len(lyric_index.tokens)}")
@@ -94,7 +82,7 @@ def main() -> None:
     print(f"  ユニークモーラ: {len(lyric_index.mora_set)}")
 
     print("マッチングエンジンを初期化中...")
-    matcher = Matcher(lyric_index, nlp=nlp, embedding_model=embedding_model)
+    matcher = Matcher(lyric_index, nlp=nlp)
 
     print(f"マッチング実行中: '{args.text}'")
     results = matcher.match(args.text)
@@ -113,8 +101,6 @@ def main() -> None:
         "lyrics_source": args.lyrics if args.lyrics else "(direct input)",
         "settings": {
             "max_mora_length": settings.max_mora_length,
-            "similarity_threshold": settings.similarity_threshold,
-            "embedding_model": settings.embedding_model,
         },
     }
     input_stats = {

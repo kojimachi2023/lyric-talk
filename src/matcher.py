@@ -12,12 +12,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import spacy
-from sentence_transformers import SentenceTransformer
 
 from .config import settings
 from .lyric_index import LyricIndex, Token
 from .mora import normalize_reading, split_mora
-from .token_alignment import TokenAligner
 
 
 class MatchType(str, Enum):
@@ -26,7 +24,6 @@ class MatchType(str, Enum):
     EXACT_SURFACE = "exact_surface"  # 表層形完全一致
     EXACT_READING = "exact_reading"  # 読み完全一致
     MORA_COMBINATION = "mora_combination"  # モーラ組み合わせ
-    SIMILAR = "similar"  # 類似語一致
     NO_MATCH = "no_match"  # マッチなし
 
 
@@ -57,8 +54,6 @@ class MatchResult:
     match_type: MatchType  # マッチタイプ
     matched_tokens: list[Token] = field(default_factory=list)  # マッチしたトークン
     mora_match: MoraMatch | None = None  # モーラ組み合わせの場合
-    similar_word: str | None = None  # 類似語（類似マッチの場合）
-    similarity_score: float | None = None  # 類似度スコア
 
     def to_dict(self) -> dict:
         """辞書形式に変換"""
@@ -95,12 +90,6 @@ class MatchResult:
                 ],
             }
 
-        if self.similar_word:
-            result["similar_word"] = self.similar_word
-
-        if self.similarity_score is not None:
-            result["similarity_score"] = self.similarity_score
-
         return result
 
     def get_output_text(self) -> str:
@@ -123,12 +112,6 @@ class MatchResult:
                 return "".join(item.mora for item in self.mora_match.mora_items)
             return ""
 
-        # 意味的類似の場合
-        if self.match_type in MatchType.SIMILAR:
-            if self.similar_word:
-                return self.similar_word
-            return ""
-
         # 完全一致、読み一致
         if self.matched_tokens:
             return self.matched_tokens[0].surface
@@ -147,18 +130,9 @@ class Matcher:
         self,
         lyric_index: LyricIndex,
         nlp: spacy.Language,
-        embedding_model: SentenceTransformer | None = None,
     ):
         self.lyric_index = lyric_index
         self.nlp = nlp
-        self.embedding_model = embedding_model
-
-        # 文脈埋め込みを使用
-        self.token_aligner = TokenAligner(
-            transformer_model_name=settings.embedding_model,
-            hidden_layer=settings.hidden_layer,
-            pooling_strategy=settings.pooling_strategy,
-        )
 
     def match(self, text: str) -> list[MatchResult]:
         """
@@ -173,13 +147,6 @@ class Matcher:
         doc = self.nlp(text)
         results = []
 
-        # 文脈埋め込みを計算（文全体）
-        embedding_map = {}
-        if self.token_aligner:
-            aligned_embeddings = self.token_aligner.align_and_extract(text, doc)
-            for aligned in aligned_embeddings:
-                embedding_map[aligned.spacy_token_index] = aligned.embedding
-
         for spacy_token in doc:
             # 空白・記号をスキップ
             if spacy_token.is_space or spacy_token.is_punct:
@@ -191,19 +158,12 @@ class Matcher:
             if not reading:
                 reading = normalize_reading(spacy_token.text)
 
-            # 文脈埋め込みを取得
-            contextual_embedding = embedding_map.get(spacy_token.i)
-
-            result = self._match_token(
-                spacy_token.text, reading, spacy_token.pos_, contextual_embedding
-            )
+            result = self._match_token(spacy_token.text, reading, spacy_token.pos_)
             results.append(result)
 
         return results
 
-    def _match_token(
-        self, surface: str, reading: str, pos: str, contextual_embedding: list[float] | None = None
-    ) -> MatchResult:
+    def _match_token(self, surface: str, reading: str, pos: str) -> MatchResult:
         """
         単一トークンをマッチングする
 
@@ -211,7 +171,6 @@ class Matcher:
         1. 表層形完全一致
         2. 読み完全一致
         3. モーラ組み合わせ
-        4. 意味的類似 → 上記1-3を類似語で再試行
         """
         # 1. 表層形完全一致
         tokens = self.lyric_index.find_by_surface(surface)
@@ -242,11 +201,6 @@ class Matcher:
                 match_type=MatchType.MORA_COMBINATION,
                 mora_match=mora_match,
             )
-
-        # 4. 意味的類似
-        similar_result = self._find_similar_match(surface, reading, pos, contextual_embedding)
-        if similar_result:
-            return similar_result
 
         # マッチなし
         return MatchResult(
@@ -332,63 +286,3 @@ class Matcher:
             )
 
         return None
-
-    def _find_similar_match(
-        self, surface: str, reading: str, pos: str, contextual_embedding: list[float] | None = None
-    ) -> MatchResult | None:
-        """
-        意味的に類似した単語を見つけ、それを使ってマッチングを試みる
-
-        類似語が見つかった場合:
-        1. 類似語の表層形が歌詞にあるか
-        2. 類似語の読みが歌詞にあるか
-        3. 類似語のモーラ組み合わせが可能か
-
-        Args:
-            surface: 表層形
-            reading: 読み
-            pos: 品詞
-            contextual_embedding: 文脈埋め込み（Noneの場合は従来の方法を使用）
-        """
-        # 非内容語は意味的類似マッチングをスキップ
-        if pos not in settings.content_pos_tags:
-            return None
-
-        # 文脈埋め込みを使用
-        if contextual_embedding:
-            return self._find_similar_match_contextual(surface, reading, pos, contextual_embedding)
-        else:
-            raise ValueError("contextual_embedding is None")
-
-    def _find_similar_match_contextual(
-        self, surface: str, reading: str, pos: str, contextual_embedding: list[float]
-    ) -> MatchResult | None:
-        """
-        文脈埋め込みを使用して類似マッチング
-
-        Args:
-            surface: 表層形
-            reading: 読み
-            pos: 品詞
-            contextual_embedding: 文脈埋め込み
-        """
-        # ChromaDBでクエリ
-        similar_tokens = self.lyric_index.query_similar_tokens(
-            query_embedding=contextual_embedding,
-            n_results=settings.max_similar_words,
-            pos_filter=None,  # 品詞フィルタは既に内容語のみが保存されているため不要
-        )
-
-        if not similar_tokens or len(similar_tokens) == 0:
-            return None
-
-        # 最もスコアの高い類似トークンを使用
-        best_result = similar_tokens[0]
-
-        return MatchResult(
-            input_token=surface,
-            input_reading=reading,
-            match_type=MatchType.SIMILAR,
-            similar_word=best_result[1].surface,
-            similarity_score=best_result[0],
-        )

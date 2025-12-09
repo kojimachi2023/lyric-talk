@@ -63,19 +63,6 @@ class TestMatchResult:
         )
         assert result.get_output_text() == "アソコ"
 
-    def test_get_output_text_similar_surface(self):
-        """意味的類似（表層形）の場合の出力テキスト"""
-        token = Token(surface="君", reading="キミ", lemma="君", pos="NOUN")
-        result = MatchResult(
-            input_token="私",
-            input_reading="ワタシ",
-            match_type=MatchType.SIMILAR,
-            matched_tokens=[token],
-            similar_word="君",
-            similarity_score=0.9,
-        )
-        assert result.get_output_text() == "君"
-
     def test_get_output_text_no_match(self):
         """マッチなしの場合の出力テキスト"""
         result = MatchResult(
@@ -246,8 +233,5 @@ class TestMatcherMoraCombination:
         results = matcher.match("あそこ")  # アソコ - 「ソ」「コ」がない
 
         assert len(results) == 1
-        # モーラ組み合わせ不可なので、意味的類似かマッチなし
-        assert results[0].match_type in (
-            MatchType.SIMILAR,
-            MatchType.NO_MATCH,
-        )
+        # モーラ組み合わせ不可なのでマッチなし
+        assert results[0].match_type == MatchType.NO_MATCH
