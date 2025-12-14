@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ddd-onion-refactor/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-14T12:33:25.165Z",
+      "trigger": "initial",
+      "approvalId": "approval_1765715605155_dyx6jm76o",
+      "approvalTitle": "DDD+Onionアーキテクチャへのリファクタリング設計書"
+    }
+  ]
+}
