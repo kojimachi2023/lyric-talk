@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ddd-onion-refactor/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-14T14:49:03.530Z",
+      "trigger": "initial",
+      "approvalId": "approval_1765723743523_wzg2uvj1l",
+      "approvalTitle": "DDD + Onion Architecture - タスクドキュメント承認リクエスト"
+    }
+  ]
+}
