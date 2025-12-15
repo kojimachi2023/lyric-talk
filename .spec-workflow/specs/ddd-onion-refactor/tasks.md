@@ -31,7 +31,7 @@
 
 ### Task 1.1: Moraテスト作成（Red）
 
-- [ ] 1.1. Write tests for Mora value object (Red phase)
+- [x] 1.1. Write tests for Mora value object (Red phase)
   - File: [tests/unit/domain/test_mora.py](tests/unit/domain/test_mora.py)
   - Mora値オブジェクトのテストを作成（実装前）
   - テスト内容: `Mora.split(katakana)` による拗音・促音・長音の正しい分割
@@ -48,7 +48,7 @@
 
 ### Task 1.2: Mora実装（Green）
 
-- [ ] 1.2. Implement Mora value object (Green phase)
+- [x] 1.2. Implement Mora value object (Green phase)
   - File: [src/domain/models/mora.py](src/domain/models/mora.py)
   - Mora値オブジェクトを実装（テストを通すため）
   - `Mora.split(katakana: str) -> List[Mora]` でカタカナをモーラに分割
@@ -67,7 +67,7 @@
 
 ### Task 1.3: Readingテスト作成（Red）
 
-- [ ] 1.3. Write tests for Reading value object (Red phase)
+- [x] 1.3. Write tests for Reading value object (Red phase)
   - File: [tests/unit/domain/test_reading.py](tests/unit/domain/test_reading.py)
   - Reading値オブジェクトのテストを作成（実装前）
   - テスト内容: `normalized` プロパティ（ひらがな→カタカナ正規化）、`to_moras()` メソッド
@@ -84,7 +84,7 @@
 
 ### Task 1.4: Reading実装（Green）
 
-- [ ] 1.4. Implement Reading value object (Green phase)
+- [x] 1.4. Implement Reading value object (Green phase)
   - File: [src/domain/models/reading.py](src/domain/models/reading.py)
   - Reading値オブジェクトを実装
   - `normalized` プロパティ、`to_moras()` メソッド
