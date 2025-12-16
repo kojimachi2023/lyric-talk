@@ -107,7 +107,7 @@
 
 ### Task 2.1: LyricTokenテスト作成（Red）
 
-- [ ] 2.1. Write tests for LyricToken entity (Red phase)
+- [x] 2.1. Write tests for LyricToken entity (Red phase)
   - File: [tests/unit/domain/test_lyric_token.py](tests/unit/domain/test_lyric_token.py)
   - LyricTokenエンティティのテストを作成（実装前）
   - テスト内容: `token_id` プロパティ、`moras` プロパティ
@@ -124,7 +124,7 @@
 
 ### Task 2.2: LyricToken実装（Green）
 
-- [ ] 2.2. Implement LyricToken entity (Green phase)
+- [x] 2.2. Implement LyricToken entity (Green phase)
   - File: [src/domain/models/lyric_token.py](src/domain/models/lyric_token.py)
   - LyricTokenエンティティを実装
   - computed properties: `token_id`, `moras`
@@ -143,7 +143,7 @@
 
 ### Task 2.3: その他エンティティ（LyricsCorpus, MatchRun, MatchResult）テスト作成（Red）
 
-- [ ] 2.3. Write tests for other entities (Red phase)
+- [x] 2.3. Write tests for other entities (Red phase)
   - Files: [tests/unit/domain/test_lyrics_corpus.py](tests/unit/domain/test_lyrics_corpus.py), [tests/unit/domain/test_match_run.py](tests/unit/domain/test_match_run.py), [tests/unit/domain/test_match_result.py](tests/unit/domain/test_match_result.py)
   - LyricsCorpus、MatchRun、MatchResultのテストを作成
   - **テスト失敗確認**: pytest実行で失敗を確認
@@ -159,7 +159,7 @@
 
 ### Task 2.4: その他エンティティ実装（Green）
 
-- [ ] 2.4. Implement other entities (Green phase)
+- [x] 2.4. Implement other entities (Green phase)
   - Files: [src/domain/models/lyrics_corpus.py](src/domain/models/lyrics_corpus.py), [src/domain/models/match_run.py](src/domain/models/match_run.py), [src/domain/models/match_result.py](src/domain/models/match_result.py)
   - LyricsCorpus、MatchRun、MatchResultを実装
   - **テスト成功確認**: pytest実行で成功を確認

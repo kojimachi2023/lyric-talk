@@ -98,5 +98,6 @@
   "github.copilot.selectedCompletionModel": "grok-code-fast-1",
   "chat.extensionUnification.enabled": true,
   "chat.tools.terminal.ignoreDefaultAutoApproveRules": false,
-  "github.copilot.chat.agent.autoFix": true
+  "github.copilot.chat.agent.autoFix": true,
+  "notebook.defaultFormatter": "charliermarsh.ruff"
 }
