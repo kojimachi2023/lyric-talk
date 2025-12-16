@@ -179,7 +179,7 @@
 
 ### Task 3.1: Repositoryインターフェース定義
 
-- [ ] 3.1. Define Repository Port interfaces
+- [x] 3.1. Define Repository Port interfaces
   - Files: [src/domain/repositories/*.py](src/domain/repositories/*.py)
   - Repository Portインターフェース定義（ABC）
   - LyricTokenRepository, LyricsRepository, MatchRepository
@@ -196,7 +196,7 @@
 
 ### Task 3.2: NlpServiceインターフェース定義
 
-- [ ] 3.2. Define NlpService Port interface and TokenData DTO
+- [x] 3.2. Define NlpService Port interface and TokenData DTO
   - Files: [src/domain/services/nlp_service.py](src/domain/services/nlp_service.py), [src/application/dtos/token_data.py](src/application/dtos/token_data.py)
   - NlpService Port、TokenData DTO定義
   - **注**: インターフェース/DTOなのでテストは不要
@@ -212,7 +212,7 @@
 
 ### Task 3.3: MatchingStrategyテスト作成（Red）
 
-- [ ] 3.3. Write tests for MatchingStrategy service (Red phase)
+- [x] 3.3. Write tests for MatchingStrategy service (Red phase)
   - File: [tests/unit/domain/test_matching_strategy.py](tests/unit/domain/test_matching_strategy.py)
   - MatchingStrategyドメインサービスのテストを作成
   - モックRepository使用、3段階マッチング戦略を検証
@@ -229,7 +229,7 @@
 
 ### Task 3.4: MatchingStrategy実装（Green）
 
-- [ ] 3.4. Implement MatchingStrategy service (Green phase)
+- [x] 3.4. Implement MatchingStrategy service (Green phase)
   - File: [src/domain/services/matching_strategy.py](src/domain/services/matching_strategy.py)
   - MatchingStrategyドメインサービスを実装
   - **テスト成功確認**: pytest実行で成功を確認
