@@ -95,7 +95,7 @@
   "github.copilot.chat.summarizeAgentConversationHistory.enabled": false,
   "github.copilot.chat.anthropic.thinking.enabled": true,
   "github.copilot.chat.anthropic.tools.websearch.enabled": true,
-  "github.copilot.selectedCompletionModel": "grok-code-fast-1",
+  "github.copilot.selectedCompletionModel": "",
   "chat.extensionUnification.enabled": true,
   "chat.tools.terminal.ignoreDefaultAutoApproveRules": false,
   "github.copilot.chat.agent.autoFix": true,

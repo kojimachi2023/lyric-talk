@@ -250,7 +250,7 @@
 
 ### Task 4.1: DB Schemaテスト作成（Red）
 
-- [ ] 4.1. Write tests for DB schema (Red phase)
+- [x] 4.1. Write tests for DB schema (Red phase)
   - File: [tests/unit/infrastructure/test_schema.py](tests/unit/infrastructure/test_schema.py)
   - DB Schema初期化のテストを作成
   - テーブル作成、インデックス作成を検証
@@ -267,7 +267,7 @@
 
 ### Task 4.2: DB Schema実装（Green）
 
-- [ ] 4.2. Implement DB schema (Green phase)
+- [x] 4.2. Implement DB schema (Green phase)
   - File: [src/infrastructure/database/schema.py](src/infrastructure/database/schema.py)
   - DuckDB Schemaを実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -283,7 +283,7 @@
 
 ### Task 4.3: DuckDB Repositoriesテスト作成（Red）
 
-- [ ] 4.3. Write tests for DuckDB repositories (Red phase)
+- [x] 4.3. Write tests for DuckDB repositories (Red phase)
   - File: [tests/unit/infrastructure/test_duckdb_repositories.py](tests/unit/infrastructure/test_duckdb_repositories.py)
   - DuckDBRepository実装のテストを作成
   - CRUD操作を検証
@@ -300,7 +300,7 @@
 
 ### Task 4.4: DuckDB Repositories実装（Green）
 
-- [ ] 4.4. Implement DuckDB repositories (Green phase)
+- [-] 4.4. Implement DuckDB repositories (Green phase)
   - Files: [src/infrastructure/database/duckdb_*.py](src/infrastructure/database/duckdb_*.py)
   - DuckDB Repository実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -333,7 +333,7 @@
 
 ### Task 4.6: SpaCy NlpService実装（Green）
 
-- [ ] 4.6. Implement SpaCy NlpService (Green phase)
+- [x] 4.6. Implement SpaCy NlpService (Green phase)
   - File: [src/infrastructure/nlp/spacy_nlp_service.py](src/infrastructure/nlp/spacy_nlp_service.py)
   - SpaCyNlpService実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -350,7 +350,7 @@
 
 ### Task 4.7: Settings実装
 
-- [ ] 4.7. Implement Settings configuration
+- [x] 4.7. Implement Settings configuration
   - File: [src/infrastructure/config/settings.py](src/infrastructure/config/settings.py)
   - pydantic-settings設定管理実装
   - **注**: シンプルな設定クラスなので、テスト省略可（または簡易テスト）

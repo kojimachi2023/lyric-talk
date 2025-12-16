@@ -21,12 +21,14 @@ class LyricsCorpus(BaseModel):
         lyrics_corpus_id: 歌詞コーパスの一意識別子（UUID推奨）
         content_hash: 歌詞テキストのSHA256ハッシュ（重複チェック用）
         title: 歌詞のタイトル（オプション）
+        artist: アーティスト名（オプション）
         created_at: 作成日時
     """
 
     lyrics_corpus_id: str
     content_hash: str
     title: Optional[str] = None
+    artist: Optional[str] = None
     created_at: datetime
 
     # エンティティは可変なのでfrozen=Falseがデフォルト（明示的に設定）
