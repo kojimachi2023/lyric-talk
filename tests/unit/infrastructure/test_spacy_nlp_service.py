@@ -5,7 +5,7 @@ import pytest
 from src.infrastructure.nlp.spacy_nlp_service import SpacyNlpService
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_spacy_nlp_service_tokenize():
     """Test SpaCyNlpService tokenize method with simple Japanese text."""
     # Import will fail initially (Red phase)
@@ -29,7 +29,7 @@ def test_spacy_nlp_service_tokenize():
         assert isinstance(token.reading, str)
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_spacy_nlp_service_reading_extraction():
     """Test that readings are properly extracted."""
 
@@ -46,7 +46,7 @@ def test_spacy_nlp_service_reading_extraction():
     assert len(tokens[0].reading) > 0
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_spacy_nlp_service_empty_text():
     """Test SpaCyNlpService with empty text."""
 
@@ -57,7 +57,7 @@ def test_spacy_nlp_service_empty_text():
     assert len(tokens) == 0
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_spacy_nlp_service_whitespace_only():
     """Test SpaCyNlpService with whitespace-only text."""
 
@@ -69,7 +69,7 @@ def test_spacy_nlp_service_whitespace_only():
     assert isinstance(tokens, list)
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_spacy_nlp_service_multiple_sentences():
     """Test SpaCyNlpService with multiple sentences."""
 
