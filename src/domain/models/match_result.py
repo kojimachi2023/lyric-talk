@@ -53,6 +53,9 @@ class MatchResult(BaseModel):
     入力トークンに対するマッチング結果を表します。
     マッチタイプ、一致したトークンID、モーラ詳細などを含みます。
 
+    完全にimmutableな値オブジェクトです。
+    MatchRunの子エンティティとして、配列の要素として管理されます。
+
     Attributes:
         input_token: 入力トークン（表層形）
         input_reading: 入力トークンの読み（カタカナ）

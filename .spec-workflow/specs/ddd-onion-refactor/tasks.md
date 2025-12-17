@@ -300,34 +300,34 @@
 
 ### Task 4.4: DuckDB Repositories実装（Green）
 
-- [-] 4.4. Implement DuckDB repositories (Green phase)
+- [x] 4.4. Implement DuckDB repositories (Green phase)
   - Files: [src/infrastructure/database/duckdb_*.py](src/infrastructure/database/duckdb_*.py)
   - DuckDB Repository実装
-  - **テスト成功確認**: pytest実行で成功を確認
+  - **テスト成功確認**: pytest実行で成功（すべてのリポジトリテストがパス）
   - _Leverage: Repository Ports, schema.py_
   - _Requirements: Requirement 4, Requirement 6_
+  - _Notes: 実装済み (DuckDBLyricTokenRepository, DuckDBLyricsRepository, DuckDBMatchRepository)。テストを分割し、`conftest.py` に fixture を追加。
   - _Prompt:
     Implement the task for spec ddd-onion-refactor, first run spec-workflow-guide to get the workflow guide then implement the task:
     Role: Python Developer specializing in repository pattern | Task: Implement DuckDB repositories (DuckDBLyricTokenRepository, DuckDBLyricsRepository, DuckDBMatchRepository) to pass tests (Green phase). Implement all Repository Port methods. | Restrictions: Pass tests | Leverage: Repository Ports, schema, tests | Success: Tests pass
     Instructions:
-    - Mark as in-progress [-]
     - Run pytest and CONFIRM pass
-    - Log
+    - Log (implementation logged)
     - Mark as completed [x]
 
 ### Task 4.5: SpaCy NlpServiceテスト作成（Red）
 
-- [ ] 4.5. Write tests for SpaCy NlpService (Red phase)
+- [x] 4.5. Write tests for SpaCy NlpService (Red phase)
   - File: [tests/unit/infrastructure/test_spacy_nlp_service.py](tests/unit/infrastructure/test_spacy_nlp_service.py)
   - SpaCyNlpService実装のテストを作成
-  - **テスト失敗確認**: pytest実行で失敗を確認
+  - **テスト失敗確認**: pytest実行で失敗を確認（Redフェーズ確認済み）
   - _Requirements: Requirement 4, Requirement 8 (TDD)_
+  - _Notes: テスト作成後、実装 (Task 4.6) を行い、すべてのテストがパスしています。 (ログ記録済み)
   - _Prompt:
     Implement the task for spec ddd-onion-refactor, first run spec-workflow-guide to get the workflow guide then implement the task:
     Role: QA Engineer specializing in TDD | Task: Write tests for SpaCyNlpService in tests/unit/infrastructure/test_spacy_nlp_service.py BEFORE implementation (Red phase). Test tokenize() method with simple Japanese text. Mark as @pytest.mark.slow. Tests MUST fail. | Restrictions: Tests only | Success: Tests fail (Red)
     Instructions:
-    - Mark as in-progress [-]
-    - Run pytest and CONFIRM failure
+    - Run pytest and CONFIRM failure (Red確認)
     - Log
     - Mark as completed [x]
 
@@ -370,7 +370,7 @@
 
 ### Task 5.1: RegisterLyricsUseCaseテスト作成（Red）
 
-- [ ] 5.1. Write tests for RegisterLyricsUseCase (Red phase)
+- [x] 5.1. Write tests for RegisterLyricsUseCase (Red phase)
   - File: [tests/unit/application/test_register_lyrics.py](tests/unit/application/test_register_lyrics.py)
   - RegisterLyricsUseCaseのテストを作成（Port/Adapterモック化）
   - **テスト失敗確認**: pytest実行で失敗を確認
@@ -386,7 +386,7 @@
 
 ### Task 5.2: RegisterLyricsUseCase実装（Green）
 
-- [ ] 5.2. Implement RegisterLyricsUseCase (Green phase)
+- [x] 5.2. Implement RegisterLyricsUseCase (Green phase)
   - File: [src/application/use_cases/register_lyrics.py](src/application/use_cases/register_lyrics.py)
   - RegisterLyricsUseCase実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -403,7 +403,7 @@
 
 ### Task 5.3: MatchTextUseCaseテスト作成（Red）
 
-- [ ] 5.3. Write tests for MatchTextUseCase (Red phase)
+- [x] 5.3. Write tests for MatchTextUseCase (Red phase)
   - File: [tests/unit/application/test_match_text.py](tests/unit/application/test_match_text.py)
   - MatchTextUseCaseのテストを作成
   - **テスト失敗確認**: pytest実行で失敗を確認
@@ -419,7 +419,7 @@
 
 ### Task 5.4: MatchTextUseCase実装（Green）
 
-- [ ] 5.4. Implement MatchTextUseCase (Green phase)
+- [x] 5.4. Implement MatchTextUseCase (Green phase)
   - File: [src/application/use_cases/match_text.py](src/application/use_cases/match_text.py)
   - MatchTextUseCase実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -436,7 +436,7 @@
 
 ### Task 5.5: QueryResultsUseCaseテスト作成（Red）
 
-- [ ] 5.5. Write tests for QueryResultsUseCase (Red phase)
+- [x] 5.5. Write tests for QueryResultsUseCase (Red phase)
   - File: [tests/unit/application/test_query_results.py](tests/unit/application/test_query_results.py)
   - QueryResultsUseCaseのテストを作成
   - **テスト失敗確認**: pytest実行で失敗を確認
@@ -452,7 +452,7 @@
 
 ### Task 5.6: QueryResultsUseCase実装（Green）
 
-- [ ] 5.6. Implement QueryResultsUseCase (Green phase)
+- [x] 5.6. Implement QueryResultsUseCase (Green phase)
   - File: [src/application/use_cases/query_results.py](src/application/use_cases/query_results.py)
   - QueryResultsUseCase実装
   - **テスト成功確認**: pytest実行で成功を確認

@@ -18,12 +18,15 @@ class LyricsRepository(ABC):
     """
 
     @abstractmethod
-    def save(self, lyrics_corpus: LyricsCorpus) -> None:
+    def save(self, lyrics_corpus: LyricsCorpus) -> str:
         """
         歌詞コーパスを保存する
 
         Args:
             lyrics_corpus: 保存する歌詞コーパス
+
+        Returns:
+            保存した歌詞コーパスのID
         """
         pass
 
@@ -55,6 +58,21 @@ class LyricsRepository(ABC):
             マッチした歌詞コーパス、見つからない場合はNone
         """
         pass
+
+    def get_by_content_hash(self, content_hash: str) -> Optional[LyricsCorpus]:
+        """
+        コンテンツハッシュで歌詞コーパスを検索する（エイリアス）
+
+        find_by_content_hash() のエイリアスメソッド。
+        UseCaseから呼ばれる一般的な命名規則に合わせている。
+
+        Args:
+            content_hash: 検索するコンテンツハッシュ（SHA256等）
+
+        Returns:
+            マッチした歌詞コーパス、見つからない場合はNone
+        """
+        return self.find_by_content_hash(content_hash)
 
     @abstractmethod
     def find_by_title(self, title: str) -> list[LyricsCorpus]:

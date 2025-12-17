@@ -23,7 +23,7 @@ class DuckDBLyricsRepository(LyricsRepository):
         """Get database connection."""
         return duckdb.connect(self.db_path)
 
-    def save(self, lyrics_corpus: LyricsCorpus) -> None:
+    def save(self, lyrics_corpus: LyricsCorpus) -> str:
         """Save a lyrics corpus."""
         conn = self._get_connection()
         try:
@@ -46,6 +46,7 @@ class DuckDBLyricsRepository(LyricsRepository):
                     lyrics_corpus.created_at,
                 ],
             )
+            return lyrics_corpus.lyrics_corpus_id
         finally:
             conn.close()
 

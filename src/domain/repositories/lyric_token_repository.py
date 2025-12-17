@@ -37,6 +37,18 @@ class LyricTokenRepository(ABC):
         """
         pass
 
+    def save_batch(self, tokens: List[LyricToken]) -> None:
+        """
+        複数の歌詞トークンをバッチ保存する（エイリアス）
+
+        save_many() のエイリアスメソッド。
+        UseCaseから呼ばれる一般的な命名規則に合わせている。
+
+        Args:
+            tokens: 保存する歌詞トークンのリスト
+        """
+        return self.save_many(tokens)
+
     @abstractmethod
     def find_by_surface(self, surface: str, lyrics_corpus_id: str) -> List[LyricToken]:
         """
@@ -91,6 +103,21 @@ class LyricTokenRepository(ABC):
             マッチした歌詞トークン、見つからない場合はNone
         """
         pass
+
+    def get_by_id(self, token_id: str) -> Optional[LyricToken]:
+        """
+        トークンIDで歌詞トークンを取得する（エイリアス）
+
+        find_by_token_id() のエイリアスメソッド。
+        UseCaseから呼ばれる一般的な命名規則に合わせている。
+
+        Args:
+            token_id: トークンID
+
+        Returns:
+            マッチした歌詞トークン、見つからない場合はNone
+        """
+        return self.find_by_token_id(token_id)
 
     @abstractmethod
     def find_by_token_ids(self, token_ids: List[str]) -> List[LyricToken]:

@@ -274,11 +274,11 @@ Domain層は **Repository/Service インターフェース（Port）** を定義
   - `save_corpus(corpus: LyricsCorpus) -> str`: コーパスメタデータを保存し、IDを返す
   - `get_corpus(lyrics_corpus_id: str) -> LyricsCorpus`: コーパスメタデータを取得
   - `find_by_hash(content_hash: str) -> Optional[LyricsCorpus]`: 歌詞ハッシュで検索（重複回避）
-- **MatchRepository** (domain/repositories/match_repository.py): マッチング結果管理
-  - `save_match_run(run: MatchRun) -> str`: 実行メタデータを保存
-  - `save_match_results(run_id: str, results: List[MatchResult]) -> None`: マッチング結果を保存
-  - `get_match_run(run_id: str) -> MatchRun`: 実行メタデータを取得
-  - `get_match_results(run_id: str) -> List[MatchResult]`: マッチング結果を取得
+- **MatchRepository** (domain/repositories/match_repository.py): MatchRun集約の管理
+  - `save(match_run: MatchRun) -> str`: 集約全体（MatchRun + results）を保存
+  - `find_by_id(run_id: str) -> Optional[MatchRun]`: IDで集約を取得（results含む）
+  - `find_by_lyrics_corpus_id(lyrics_corpus_id: str) -> List[MatchRun]`: 歌詞コーパスIDで検索
+  - `delete(run_id: str) -> None`: 集約を削除
 
 ## Components and Interfaces
 
@@ -326,23 +326,26 @@ Domain層は **Repository/Service インターフェース（Port）** を定義
 
 #### `domain/models/match_result.py` - MatchResult 値オブジェクト
 
-- **Purpose:** マッチング結果を表す値オブジェクト
+- **Purpose:** マッチング結果を表す完全にimmutableな値オブジェクト（MatchRunの子エンティティ）
 - **Interfaces:**
   - `MatchResult(input_token, input_reading, match_type, matched_token_ids, mora_details)`: コンストラクタ
   - `match_type: MatchType`: マッチタイプ（列挙型）
   - `matched_token_ids: List[str]`: マッチしたLyricTokenのID（リレーション）
 - **Dependencies:** なし
-- **Note**: pydantic BaseModelを使用
+- **Note**: pydantic BaseModelを使用、完全にimmutable（frozen=True）。MatchRun配列内での位置がinput_token_indexを表す
 
-#### `domain/models/match_run.py` - MatchRun エンティティ
+#### `domain/models/match_run.py` - MatchRun エンティティ（集約ルート）
 
-- **Purpose:** マッチング実行のメタデータを表すエンティティ
+- **Purpose:** マッチング実行を表すエンティティ（集約ルート）
+- **Aggregate:** MatchRun ||--o{ MatchResult（MatchRunが集約ルート、MatchResultが子エンティティ）
 - **Interfaces:**
-  - `MatchRun(run_id, lyrics_corpus_id, timestamp, input_text, config)`: コンストラクタ
+  - `MatchRun(run_id, lyrics_corpus_id, timestamp, input_text, config, results)`: コンストラクタ
   - `run_id: str`: ユニークID（UUID）
   - `lyrics_corpus_id: str`: 使用した歌詞コーパスのID
-- **Dependencies:** なし
-- **Note**: pydantic BaseModelを使用
+  - `results: List[MatchResult]`: マッチング結果（子エンティティ）
+  - `add_result(result: MatchResult) -> None`: 結果を追加
+- **Dependencies:** `MatchResult`
+- **Note**: pydantic BaseModelを使用、集約全体で保存・取得される
 
 #### `domain/services/matching_strategy.py` - MatchingStrategy ドメインサービス
 
@@ -375,13 +378,15 @@ Domain層は **Repository/Service インターフェース（Port）** を定義
 
 #### `domain/repositories/match_repository.py` - MatchRepository Port
 
-- **Purpose:** マッチング結果管理のRepositoryインターフェース（Domain層に配置）
+- **Purpose:** MatchRun集約の永続化・検索のRepositoryインターフェース（Domain層に配置）
+- **Aggregate Pattern:** MatchRunを集約ルートとして扱い、子エンティティMatchResultと一括で保存・取得する
 - **Interfaces:**
-  - `@abstractmethod save_match_run(run: MatchRun) -> str`
-  - `@abstractmethod save_match_results(run_id: str, results: List[MatchResult]) -> None`
-  - `@abstractmethod get_match_run(run_id: str) -> MatchRun`
-  - `@abstractmethod get_match_results(run_id: str) -> List[MatchResult]`
-- **Dependencies:** `MatchRun`, `MatchResult`
+  - `@abstractmethod save(match_run: MatchRun) -> str`: 集約全体（MatchRun + results）を保存
+  - `@abstractmethod find_by_id(run_id: str) -> Optional[MatchRun]`: IDで集約を取得（results含む）
+  - `@abstractmethod find_by_lyrics_corpus_id(lyrics_corpus_id: str) -> List[MatchRun]`: 歌詞コーパスIDで検索
+  - `@abstractmethod delete(run_id: str) -> None`: 集約を削除
+- **Dependencies:** `MatchRun`
+- **Note**: 集約パターンに従い、save_results()は廃止（save()で集約全体を保存）
 
 #### `domain/services/nlp_service.py` - NlpService Port
 
@@ -460,14 +465,15 @@ Domain層は **Repository/Service インターフェース（Port）** を定義
 
 #### `infrastructure/database/duckdb_match_repository.py` - DuckDBMatchRepository
 
-- **Purpose:** DuckDB を使った `MatchRepository` の実装
+- **Purpose:** DuckDB を使った `MatchRepository` の実装（集約パターン対応）
 - **Interfaces:**
   - `DuckDBMatchRepository(db_path: str)`
-  - `save_match_run(run: MatchRun) -> str`
-  - `save_match_results(run_id: str, results: List[MatchResult]) -> None`
-  - `get_match_run(run_id: str) -> MatchRun`
-  - `get_match_results(run_id: str) -> List[MatchResult]`
+  - `save(match_run: MatchRun) -> str`: 集約全体（MatchRun + results）をトランザクションで保存
+  - `find_by_id(run_id: str) -> Optional[MatchRun]`: IDで集約を取得（results含む）
+  - `find_by_lyrics_corpus_id(lyrics_corpus_id: str) -> List[MatchRun]`: 歌詞コーパスIDで検索
+  - `delete(run_id: str) -> None`: 集約を削除
 - **Dependencies:** `duckdb`, `MatchRepository`, `MatchRun`, `MatchResult`
+- **Note**: 集約パターンに従い、MatchRunとMatchResultを一括で保存・取得する
 
 #### `infrastructure/database/schema.py` - Database Schema
 

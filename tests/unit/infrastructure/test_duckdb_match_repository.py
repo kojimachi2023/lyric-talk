@@ -19,27 +19,29 @@ def test_save_and_find_run(temp_db_with_corpus):
     db_path, corpus_id = temp_db_with_corpus
     repo = DuckDBMatchRepository(str(db_path))
 
-    # Create test match run
+    # Create test match run (aggregate)
     match_run = MatchRun(
         run_id="run-001",
         lyrics_corpus_id=corpus_id,
         input_text="テスト",
         timestamp=datetime.now(),
         config={"max_mora_length": 5},
+        results=[],  # Empty results
     )
 
-    # Save match run
-    repo.save_run(match_run)
+    # Save match run (aggregate)
+    repo.save(match_run)
 
     # Find match run by id
-    result = repo.find_run_by_id("run-001")
+    result = repo.find_by_id("run-001")
     assert result is not None
     assert result.input_text == "テスト"
     assert result.config["max_mora_length"] == 5
+    assert result.results == []
 
 
-def test_save_and_find_results(temp_db_with_corpus):
-    """Test saving and finding match results."""
+def test_save_and_find_run_with_results(temp_db_with_corpus):
+    """Test saving and finding match run with results (aggregate)."""
     db_path, corpus_id = temp_db_with_corpus
 
     # Create a token first (for foreign key)
@@ -55,39 +57,37 @@ def test_save_and_find_results(temp_db_with_corpus):
     )
     token_repo.save(token)
 
-    # Create match run
+    # Create match run with results (aggregate)
     repo = DuckDBMatchRepository(str(db_path))
+    match_result = MatchResult(
+        input_token="テスト",
+        input_reading="テスト",
+        match_type=MatchType.EXACT_SURFACE,
+        matched_token_ids=[token.token_id],
+        mora_details=None,
+    )
+
     match_run = MatchRun(
         run_id="run-001",
         lyrics_corpus_id=corpus_id,
         input_text="テスト",
         timestamp=datetime.now(),
         config={"max_mora_length": 5},
+        results=[match_result],
     )
-    repo.save_run(match_run)
 
-    # Create test match results
-    match_results = [
-        MatchResult(
-            input_token="テスト",
-            input_reading="テスト",
-            match_type=MatchType.EXACT_SURFACE,
-            matched_token_ids=[token.token_id],
-            mora_details=[],
-        )
-    ]
+    # Save aggregate
+    repo.save(match_run)
 
-    # Save match results
-    repo.save_results("run-001", match_results)
-
-    # Find match results by run_id
-    results = repo.find_results_by_run_id("run-001")
-    assert len(results) == 1
-    assert results[0].input_token == "テスト"
-    assert results[0].match_type == MatchType.EXACT_SURFACE
+    # Find aggregate by id
+    result = repo.find_by_id("run-001")
+    assert result is not None
+    assert len(result.results) == 1
+    assert result.results[0].input_token == "テスト"
+    assert result.results[0].match_type == MatchType.EXACT_SURFACE
 
 
-def test_find_runs_by_corpus_id(temp_db_with_corpus):
+def test_find_by_lyrics_corpus_id(temp_db_with_corpus):
     """Test finding match runs by corpus ID."""
     db_path, corpus_id = temp_db_with_corpus
     repo = DuckDBMatchRepository(str(db_path))
@@ -100,11 +100,12 @@ def test_find_runs_by_corpus_id(temp_db_with_corpus):
             input_text=f"テスト{i}",
             timestamp=datetime.now(),
             config={"max_mora_length": 5},
+            results=[],
         )
-        repo.save_run(match_run)
+        repo.save(match_run)
 
     # Find runs by corpus_id
-    results = repo.find_runs_by_lyrics_corpus_id(corpus_id)
+    results = repo.find_by_lyrics_corpus_id(corpus_id)
     assert len(results) == 3
 
 
@@ -125,35 +126,32 @@ def test_delete_run(temp_db_with_corpus):
     )
     token_repo.save(token)
 
-    # Create match run and results
+    # Create match run with results (aggregate)
     repo = DuckDBMatchRepository(str(db_path))
+    match_result = MatchResult(
+        input_token="テスト",
+        input_reading="テスト",
+        match_type=MatchType.EXACT_SURFACE,
+        matched_token_ids=[token.token_id],
+        mora_details=None,
+    )
+
     match_run = MatchRun(
         run_id="run-001",
         lyrics_corpus_id=corpus_id,
         input_text="テスト",
         timestamp=datetime.now(),
         config={"max_mora_length": 5},
+        results=[match_result],
     )
-    repo.save_run(match_run)
-
-    match_results = [
-        MatchResult(
-            input_token="テスト",
-            input_reading="テスト",
-            match_type=MatchType.EXACT_SURFACE,
-            matched_token_ids=[token.token_id],
-            mora_details=[],
-        )
-    ]
-    repo.save_results("run-001", match_results)
+    repo.save(match_run)
 
     # Verify they exist
-    assert repo.find_run_by_id("run-001") is not None
-    assert len(repo.find_results_by_run_id("run-001")) == 1
+    assert repo.find_by_id("run-001") is not None
+    assert len(repo.find_by_id("run-001").results) == 1
 
     # Delete run
-    repo.delete_run("run-001")
+    repo.delete("run-001")
 
     # Verify they're gone
-    assert repo.find_run_by_id("run-001") is None
-    assert len(repo.find_results_by_run_id("run-001")) == 0
+    assert repo.find_by_id("run-001") is None

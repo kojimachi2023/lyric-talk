@@ -112,7 +112,7 @@ class TestMatchResult:
         assert result.mora_details is None
 
     def test_match_result_immutability(self):
-        """MatchResultは不変であることを確認"""
+        """値オブジェクトなので不変であることを確認"""
         import pytest
 
         result = MatchResult(
@@ -122,6 +122,7 @@ class TestMatchResult:
             matched_token_ids=["token_001"],
             mora_details=None,
         )
+        # 値オブジェクトなので変更できない
         with pytest.raises((AttributeError, Exception)):
             result.input_token = "変更"
 

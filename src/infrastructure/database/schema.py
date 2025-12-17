@@ -70,6 +70,7 @@ def initialize_database(db_path: Union[str, Path]) -> duckdb.DuckDBPyConnection:
             match_type VARCHAR NOT NULL,
             matched_token_ids_json VARCHAR,
             mora_details_json VARCHAR,
+            input_token_index INTEGER DEFAULT 0,
             FOREIGN KEY (run_id) REFERENCES match_runs(run_id),
             FOREIGN KEY (token_id) REFERENCES lyric_tokens(token_id)
         )

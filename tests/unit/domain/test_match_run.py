@@ -95,3 +95,50 @@ class TestMatchRun:
         assert match_run.run_id == run_id
         # UUIDフォーマットであることを確認
         uuid.UUID(match_run.run_id)  # 例外が発生しなければOK
+
+    def test_match_run_with_empty_results(self):
+        """MatchRunを空のresultsで作成できることを確認"""
+        now = datetime.now()
+        match_run = MatchRun(
+            run_id="run_006",
+            lyrics_corpus_id="corpus_006",
+            timestamp=now,
+            input_text="空results",
+            config={},
+            results=[],
+        )
+        assert match_run.results == []
+
+    def test_match_run_default_results(self):
+        """resultsフィールドがデフォルトで空リストであることを確認"""
+        now = datetime.now()
+        match_run = MatchRun(
+            run_id="run_007",
+            lyrics_corpus_id="corpus_007",
+            timestamp=now,
+            input_text="デフォルトresults",
+            config={},
+        )
+        assert match_run.results == []
+
+    def test_match_run_add_result(self):
+        """add_result()でMatchResultを追加できることを確認"""
+        from unittest.mock import Mock
+
+        now = datetime.now()
+        match_run = MatchRun(
+            run_id="run_008",
+            lyrics_corpus_id="corpus_008",
+            timestamp=now,
+            input_text="result追加テスト",
+            config={},
+        )
+
+        # Mock MatchResult
+        mock_result = Mock()
+        mock_result.input_token = "テスト"
+
+        match_run.add_result(mock_result)
+
+        assert len(match_run.results) == 1
+        assert match_run.results[0] == mock_result
