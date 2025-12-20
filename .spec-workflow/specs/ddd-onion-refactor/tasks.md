@@ -473,7 +473,7 @@
 
 ### Task 6.1: CLI Mainテスト作成（Red）
 
-- [ ] 6.1. Write tests for CLI main (Red phase)
+- [x] 6.1. Write tests for CLI main (Red phase)
   - File: [tests/unit/interface/test_cli_main.py](tests/unit/interface/test_cli_main.py)
   - CLI Mainのテストを作成
   - **テスト失敗確認**: pytest実行で失敗を確認
@@ -489,7 +489,7 @@
 
 ### Task 6.2: CLI Main実装（Green）
 
-- [ ] 6.2. Implement CLI main (Green phase)
+- [x] 6.2. Implement CLI main (Green phase)
   - File: [src/interface/cli/main.py](src/interface/cli/main.py)
   - CLI Mainエントリポイント実装
   - **テスト成功確認**: pytest実行で成功を確認
@@ -506,7 +506,7 @@
 
 ### Task 6.3: pyproject.tomlエントリポイント更新
 
-- [ ] 6.3. Update pyproject.toml entry point
+- [x] 6.3. Update pyproject.toml entry point
   - File: [pyproject.toml](pyproject.toml)
   - `[project.scripts]` を更新: `lyric-talk = "src.interface.cli.main:main"`
   - _Requirements: Requirement 7_
@@ -524,7 +524,7 @@
 
 ### Task 7.1: E2E統合テスト作成
 
-- [ ] 7.1. Write end-to-end integration tests
+- [x] 7.1. Write end-to-end integration tests
   - File: [tests/integration/test_full_pipeline.py](tests/integration/test_full_pipeline.py)
   - register → match → query の一連の流れをテスト（実際のspaCy + DuckDB）
   - `@pytest.mark.integration`
@@ -544,7 +544,7 @@
 
 ### Task 8.1: 既存コードの削除
 
-- [ ] 8.1. Remove old experimental code
+- [x] 8.1. Remove old experimental code
   - Files to delete: [src/main.py](src/main.py), [src/config.py](src/config.py), [src/lyric_index.py](src/lyric_index.py), [src/matcher.py](src/matcher.py), [src/mora.py](src/mora.py)
   - 既存の実験的コードを削除
   - _Requirements: Requirement 7_
@@ -558,7 +558,7 @@
 
 ### Task 8.2: ドキュメント更新
 
-- [ ] 8.2. Update README with new architecture
+- [x] 8.2. Update README with new architecture
   - File: [README.md](README.md)
   - 新アーキテクチャの説明、使用方法、開発ガイドを追加
   - _Requirements: すべての要件_
@@ -572,7 +572,7 @@
 
 ### Task 8.3: 最終動作確認
 
-- [ ] 8.3. Final verification and testing
+- [x] 8.3. Final verification and testing
   - すべてのテストを実行: `uv run pytest`
   - Lint: `uv run ruff check .`
   - Format: `uv run ruff format .`

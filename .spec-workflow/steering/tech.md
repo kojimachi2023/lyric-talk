@@ -3,9 +3,9 @@
 ## Project Type
 
 - **Python 製 CLI ツール**（日本語歌詞を素材に、入力文を再現するためのテキストマッチング）
-- 実行形態: コマンドライン実行 → JSON 出力（`output.json` など）
+- 実行形態: コマンドライン実行 → DuckDB への永続化
 - 将来的な拡張候補: LLM による言い換え・候補生成（※現状のコア機能には未統合）
-- 補足: **現状のリポジトリ内コードは技術検証（PoC）段階**であり、将来的に設計・構造を見直す予定があります（後述）。
+- アーキテクチャ: **DDD + Onion Architecture** を採用
 
 ## Core Technologies
 
@@ -14,73 +14,62 @@
 - **Language**: Python >= 3.12
 - **Runtime/Compiler**: CPython
 - **Language-specific tools**:
-  - 依存管理/実行: `uv`（プロジェクト方針）
+  - 依存管理/実行: `uv`
   - パッケージング: `hatchling`
-  - エントリポイント: `lyric-talk = "src.main:main"`（`pyproject.toml`）
+  - エントリポイント: `lyric-talk = "src.interface.cli.main:main"`
 
 ### Key Dependencies/Libraries
 
-（`pyproject.toml` の依存関係を中心に、「現状で使っているもの」と「将来拡張のために同梱しているもの」を分けて記載）
-
-#### 現状のコア依存（実装に直接登場）
+#### コア依存
 
 - **spaCy (>=3.7.0)**: 日本語形態素解析の基盤
-- **GiNZA (>=5.2.0), ja-ginza (>=5.2.0)**: spaCy 上で日本語解析（読み情報 `Reading` 取得など）
-- **pydantic (>=2.0.0), pydantic-settings (>=2.0.0)**: 設定管理（環境変数/`.env`）
-- **fugashi / unidic-lite / ipadic**: 日本語トークナイザ・辞書（環境により利用）
+- **GiNZA (>=5.2.0), ja-ginza (>=5.2.0)**: spaCy 上で日本語解析（読み情報取得）
+- **pydantic (>=2.0.0), pydantic-settings (>=2.0.0)**: ドメインモデル定義と設定管理
+- **DuckDB (>=1.4.3)**: 歌詞コーパス、トークン、マッチ結果の永続化
+- **fugashi / unidic-lite / ipadic**: 日本語トークナイザ・辞書
 
-#### 将来拡張向け依存（現状は主に拡張準備）
+#### 拡張準備
 
-- **ollama**: ローカルLLM連携（将来的な言い換え・候補生成用途）
-
-補足: リポジトリには Node.js 依存（`@pimzino/spec-workflow-mcp`, `@upstash/context7-mcp`）もありますが、これは開発ワークフロー支援（spec/steering）用途で、アプリ本体の実行には必須ではありません。
+- **ollama (>=0.6.1)**: ローカルLLM連携（将来的な言い換え・候補生成用途）
 
 ### Application Architecture
 
-#### 現状（技術検証 / PoC）
+**DDD + Onion Architecture** を採用した階層構造：
 
-- **シンプルな「CLI → 解析/インデックス化 → マッチング → JSON 出力」パイプライン型**
-- 現状の主要モジュール:
-  - `src/main.py`: CLI エントリポイント
-  - `src/lyric_index.py`: 歌詞テキストを解析してインデックス構築（表層形/読み/モーラ）
-  - `src/matcher.py`: 入力トークンのマッチング（優先度付きルール）
-  - `src/mora.py`: 読み正規化・モーラ分割
-  - `src/config.py`: 実行時設定（例: `max_mora_length`）
+- **Domain 層**: エンティティ/値オブジェクト/ドメインサービス（純粋なビジネスロジック）
+  - エンティティ: `LyricToken`, `LyricsCorpus`, `MatchRun`
+  - 値オブジェクト: `Reading`, `Mora`, `MatchResult`
+  - ドメインサービス: `MatchingStrategy`, `NlpService`（抽象）
+  - リポジトリ（インターフェース定義）
+  
+- **Application 層**: ユースケース、入出力 DTO、トランザクション境界
+  - ユースケース: `RegisterLyricsUseCase`, `MatchTextUseCase`, `QueryResultsUseCase`
+  - DTO: `TokenData`
+  
+- **Infrastructure 層**: 外部技術の実装
+  - NLP: `SpacyNlpService`（spaCy + GiNZA）
+  - データベース: `DuckDBLyricsRepository`, `DuckDBLyricTokenRepository`, `DuckDBMatchRepository`
+  - 設定: `Settings`（pydantic-settings、環境変数接頭辞 `LYRIC_TALK_`）
+  
+- **Interface 層**: CLI アダプタ
+  - CLI エントリポイント: `src.interface.cli.main:main`
+  - コマンド: `register`, `match`, `query`
 
-補足:
+### Data Storage
 
-- 設定は `pydantic-settings` により読み込み、環境変数接頭辞は `LYRIC_TALK_`（例: `LYRIC_TALK_MAX_MORA_LENGTH`）です。
-- CLI は `--lyrics`/`--lyrics-text` と `--text` を受け取り、結果を JSON ファイルへ書き出します。
+- **Primary storage**: DuckDB（`lyrics_corpus`, `lyric_tokens`, `match_runs`, `match_results` テーブル）
+- **Output**: JSON ファイル（`query` コマンドの出力）
+- **Schema**: `infrastructure/database/schema.py` で定義・初期化
 
-#### 将来の方針（計画）
+### External Integrations
 
-- **DDD + Onion Architecture** へ段階的に書き換える予定です。
-- 目的: ドメイン知識の分離、依存方向の明確化、テスト容易性の向上。
-- 想定レイヤ（例）:
-  - **Domain**: エンティティ/値オブジェクト/ドメインサービス（純粋なビジネスロジック）
-  - **Application**: ユースケース、入出力 DTO、トランザクション境界
-  - **Infrastructure**: NLP/LLM 等の外部技術、永続化、外部I/O 実装
-  - **Interface**: CLI/（将来の）API などのアダプタ
+- 基本的に **ローカル完結**（ネットワーク必須の外部 API 連携なし）
+- 将来的な拡張候補: `ollama`（ローカルLLMサーバ）による言い換え・候補生成
 
-※この `tech.md` では「現状（PoC）」と「将来（計画）」を分けて記載し、混同しないようにします。
+### Monitoring & Dashboard Technologies
 
-### Data Storage (if applicable)
-
-- **Primary storage**: なし（現状はメモリ上で処理）
-- **Output**: JSON ファイル（例: `output.json`）
-- **Future option**: 必要になった場合に永続化層（DB/ファイル）を導入
-
-### External Integrations (if applicable)
-
-- 現状は基本的に **ローカル完結**（ネットワーク必須の外部 API 連携なし）
-- 将来的に（必要になった場合）:
-  - **LLM**: `ollama`（ローカルLLMサーバ）
-
-### Monitoring & Dashboard Technologies (if applicable)
-
-- **Dashboard Framework**: なし（CLI ログ出力が中心）
-- **Real-time Communication**: なし
-- **State Management**: ファイル出力（JSON）
+- **CLI ログ出力**が中心
+- **State Management**: DuckDB + JSON ファイル出力
 
 ## Development Environment
 
@@ -120,8 +109,9 @@
 
 ### Performance Requirements
 
-- 形態素解析（spaCy + GiNZA）がボトルネックになり得るため、入力サイズ（歌詞行数/トークン数）に応じた実用的な処理時間を維持する
-- マッチングは説明可能性を優先しつつ、将来的に候補探索の最適化（キャッシュ/探索戦略）を検討
+- 形態素解析（spaCy + GiNZA）がボトルネック
+- マッチングは説明可能性を優先（全体最適探索は将来課題）
+- 典型的な歌詞入力（数百〜数千トークン）で実用的な処理時間を維持
 
 ### Compatibility Requirements
 
@@ -135,21 +125,22 @@
 
 ### Scalability & Reliability
 
-- 現状は単一プロセス/メモリ内処理
-- 将来的に:
-  - キャッシュ
-  - 永続化層（必要になった場合）
+- 単一プロセス処理
+- DuckDB による永続化で過去のマッチ結果を保持
+- 将来的な最適化候補: キャッシュ、並列処理
 
 ## Technical Decisions & Rationale
 
 ### Decision Log
 
-1. **spaCy + GiNZA 採用**: 日本語の形態素解析と読み（`Reading`）取得を安定して行えるため
-2. **表層形→読み→モーラの優先度付きルール**: 説明可能で、エラー原因を追いやすい構造にするため
-3. **設定を pydantic-settings で管理**: 実験的パラメータ（例: `max_mora_length`）を環境変数/`.env` で安全に切り替えるため
+1. **DDD + Onion Architecture 採用**: ドメイン知識の分離、依存方向の明確化、テスト容易性の向上
+2. **spaCy + GiNZA 採用**: 日本語の形態素解析と読み取得を安定して行えるため
+3. **表層形→読み→モーラの優先度付きマッチング**: 説明可能性とエラー追跡の容易さを重視
+4. **pydantic によるドメインモデル定義**: 型安全性とバリデーション
+5. **DuckDB による永続化**: 軽量で組み込み可能、SQL による柔軟なクエリ
 
 ## Known Limitations
 
-- `ja_ginza` のロード時間が初回実行の体感を左右する
-- 現状のマッチングは「最初に見つかった候補を採用」する場面があり、最適解探索（全体最適）は未実装
-- 言い換え（LLM）などの拡張は現状未統合（今後の拡張領域）
+- `ja_ginza` のロード時間が初回実行時に影響
+- マッチングは貪欲法（最初に見つかった候補を採用）で、全体最適探索は未実装
+- LLM による言い換え機能は未統合

@@ -31,6 +31,7 @@
 - ルールベースの一致に加え、将来的な意味的類似（埋め込み）・言い換え（LLM）などの拡張を可能にする
 - uvによる依存関係管理を行う。また、uvxにより、本ツールをpython環境構築不要で実行できる環境も構築する
 - テスト（pytest）と静的解析（ruff）を前提に、安心して改修できる開発体験を提供する
+- DDD + Onion Architectureによるクリーンなアーキテクチャを実装し、拡張性と保守性を確保する
 
 ## Success Metrics
 
@@ -49,7 +50,7 @@
 - **Dashboard Type**: CLI（進捗ログ） + JSON 出力（`output.json`）
 - **Real-time Updates**: なし（現状は処理中ログ出力のみ）
 - **Key Metrics Displayed**: インデックス統計（トークン数/ユニーク表層形/ユニーク読み/ユニークモーラ）、マッチタイプ別件数
-- **Sharing Capabilities**: JSON をファイルとして共有（将来的にDB保存・過去のマッチングの履歴を終えるようにする）
+- **Data Persistence**: DuckDBによる永続化層を実装済み（歌詞コーパス、トークン、マッチ結果の履歴管理）
 
 ## Future Vision
 
