@@ -38,7 +38,7 @@ class RegisterLyricsUseCase:
         content_hash = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest()
 
         # Check if corpus already exists
-        existing_corpus = self.lyrics_repository.get_by_content_hash(content_hash)
+        existing_corpus = self.lyrics_repository.find_by_content_hash(content_hash)
         if existing_corpus:
             return existing_corpus.lyrics_corpus_id
 

@@ -13,6 +13,7 @@
     "no-inline-html": false,
     "no-bare-urls": false
   },
+  "markdownlint.lintWorkspaceGlobs": [".spec-workflow/**/*.md"],
   "[json][jsonc][yaml]": {
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,

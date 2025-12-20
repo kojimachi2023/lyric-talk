@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-lyric-talk = "src.main:main"
+lyric-talk = "src.interface.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -47,4 +47,7 @@ select = ["E", "F", "I", "W"]
 addopts = "-vv --cov=src --cov-branch --cov-report=term --durations=0 -n 8"
 python_files = "test_*.py"
 testpaths = "tests"
-markers = ["slow: mark test as slow."]
+markers = [
+    "slow: mark test as slow.",
+    "integration: mark test as integration test.",
+]

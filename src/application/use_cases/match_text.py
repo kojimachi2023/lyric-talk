@@ -6,6 +6,7 @@ from datetime import datetime
 from src.domain.models.match_result import MatchResult
 from src.domain.models.match_run import MatchRun
 from src.domain.models.reading import Reading
+from src.domain.repositories.lyric_token_repository import LyricTokenRepository
 from src.domain.repositories.match_repository import MatchRepository
 from src.domain.services.matching_strategy import MatchingStrategy
 from src.domain.services.nlp_service import NlpService
@@ -17,18 +18,21 @@ class MatchTextUseCase:
     def __init__(
         self,
         nlp_service: NlpService,
-        matching_strategy: MatchingStrategy,
+        lyric_token_repository: LyricTokenRepository,
         match_repository: MatchRepository,
+        max_mora_length: int = 5,
     ):
         self.nlp_service = nlp_service
-        self.matching_strategy = matching_strategy
+        self.lyric_token_repository = lyric_token_repository
         self.match_repository = match_repository
+        self.max_mora_length = max_mora_length
 
-    def execute(self, input_text: str) -> str:
+    def execute(self, input_text: str, lyrics_corpus_id: str) -> str:
         """Match input text against lyrics and return run_id.
 
         Args:
             input_text: Input text to match
+            lyrics_corpus_id: ID of lyrics corpus to match against
 
         Returns:
             run_id: ID of the match run
@@ -39,13 +43,20 @@ class MatchTextUseCase:
         # Generate run_id
         run_id = f"run_{uuid.uuid4().hex[:12]}"
 
+        # Create MatchingStrategy for this specific corpus
+        matching_strategy = MatchingStrategy(
+            repository=self.lyric_token_repository,
+            lyrics_corpus_id=lyrics_corpus_id,
+            max_mora_length=self.max_mora_length,
+        )
+
         # Create MatchRun entity (aggregate root)
         match_run = MatchRun(
             run_id=run_id,
-            lyrics_corpus_id="",  # TODO: should be extracted from matching
+            lyrics_corpus_id=lyrics_corpus_id,
             timestamp=datetime.now(),
             input_text=input_text,
-            config={},  # TODO: add matching config
+            config={"max_mora_length": self.max_mora_length},
             results=[],  # Will be populated below
         )
 
@@ -54,10 +65,9 @@ class MatchTextUseCase:
             reading = Reading(raw=token_data.reading)
 
             # Match token using strategy
-            match_result: MatchResult = self.matching_strategy.match_token(
+            match_result: MatchResult = matching_strategy.match_token(
                 surface=token_data.surface,
-                reading=reading,
-                lemma=token_data.lemma,
+                reading=reading.normalized,
                 pos=token_data.pos,
             )
 

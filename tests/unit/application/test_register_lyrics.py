@@ -27,7 +27,7 @@ class TestRegisterLyricsUseCase:
         lyrics_text = "テスト\nサンプル"
 
         # Mock: corpus doesn't exist (new registration)
-        lyrics_repo.get_by_content_hash.return_value = None
+        lyrics_repo.find_by_content_hash.return_value = None
         lyrics_repo.save.return_value = "corpus_123"
 
         # Mock: tokenization
@@ -43,7 +43,7 @@ class TestRegisterLyricsUseCase:
         assert corpus_id == "corpus_123"
 
         # Verify hash check
-        lyrics_repo.get_by_content_hash.assert_called_once()
+        lyrics_repo.find_by_content_hash.assert_called_once()
 
         # Verify tokenization
         nlp_service.tokenize.assert_called_once_with(lyrics_text)
@@ -82,7 +82,7 @@ class TestRegisterLyricsUseCase:
             content_hash="hash_abc",
             created_at=datetime.now(),
         )
-        lyrics_repo.get_by_content_hash.return_value = existing_corpus
+        lyrics_repo.find_by_content_hash.return_value = existing_corpus
 
         # Act
         corpus_id = use_case.execute(lyrics_text)
@@ -91,7 +91,7 @@ class TestRegisterLyricsUseCase:
         assert corpus_id == "existing_corpus_456"
 
         # Verify hash check
-        lyrics_repo.get_by_content_hash.assert_called_once()
+        lyrics_repo.find_by_content_hash.assert_called_once()
 
         # Verify NO tokenization or saving
         nlp_service.tokenize.assert_not_called()
@@ -114,7 +114,7 @@ class TestRegisterLyricsUseCase:
         lyrics_text = ""
 
         # Mock
-        lyrics_repo.get_by_content_hash.return_value = None
+        lyrics_repo.find_by_content_hash.return_value = None
         lyrics_repo.save.return_value = "corpus_empty"
         nlp_service.tokenize.return_value = []
 

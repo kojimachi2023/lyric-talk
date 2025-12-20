@@ -209,9 +209,8 @@ __marimo__/
 # node
 **/node_modules/
 
-# chromadb
-**/chroma_db/
-**/.chromadb/
-
 *.txt
 output.json
+
+# duckdb
+*.duckdb
