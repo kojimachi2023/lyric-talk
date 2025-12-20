@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/cli-usability-improvements/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-20T08:37:16.786Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766219836780_vt781q4de",
+      "approvalTitle": "設計: cli-usability-improvements"
+    }
+  ]
+}
