@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ddd-onion-refactor/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-13T07:44:56.807Z",
+      "trigger": "initial",
+      "approvalId": "approval_1765611896800_k4m9nt8wv",
+      "approvalTitle": "DDD + Onion Architecture 改良の要件定義書レビュー"
+    }
+  ]
+}

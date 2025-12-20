@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1765610219150_1s7jh4c3e",
+  "approvalId": "approval_1765610219146_ug940uvu1",
+  "approvalTitle": "Steering: structure.md の承認",
+  "version": 1,
+  "timestamp": "2025-12-13T07:16:59.150Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "# Project Structure\n\n## Directory Organization\n\nこのリポジトリは現状 **技術検証（PoC）段階**の実装が中心で、将来的に **DDD + Onion Architecture** へ移行する方針です。\n\n### Current (PoC)\n\n```\nlyric-talk/\n├── src/                     # アプリ本体（Python パッケージ）\n│   ├── __init__.py\n│   ├── main.py              # CLI エントリポイント\n│   ├── config.py            # 設定（pydantic-settings）\n│   ├── lyric_index.py       # 歌詞インデックス生成\n│   ├── matcher.py           # マッチングロジック\n│   └── mora.py              # 読み正規化/モーラ分割\n├── .spec-workflow/          # spec/steering 運用（開発支援）\n│   ├── steering/\n│   └── templates/\n├── pyproject.toml           # 依存/ビルド/テスト/ruff 設定\n├── uv.lock                  # uv ロック\n├── README.md\n├── output.json              # 実行例の出力（成果物）\n└── test_lyrics.txt          # 動作確認用の歌詞テキスト例\n```\n\n補足:\n- Node.js（`package.json`, `pnpm-lock.yaml`, `node_modules/`）は主に **spec-workflow ダッシュボード等の開発支援**用途です。\n- テストは `pyproject.toml` の設定上 `tests/` 配下（`test_*.py`）を想定します。\n\n### Planned (DDD + Onion Architecture)\n\n将来的には依存方向を明確化し、ドメインを外部技術から隔離する構成へ段階的に移行します。\n\n```\nlyric-talk/\n└── src/\n    ├── domain/              # エンティティ/値オブジェクト/ドメインサービス\n    ├── application/         # ユースケース、DTO、ポート（インターフェース）\n    ├── infrastructure/      # NLP/永続化など外部実装\n    └── interface/           # CLI /（将来の）API など入力アダプタ\n```\n\n## Naming Conventions\n\n### Files\n- **Python modules/packages**: `snake_case.py`\n- **Packages**: `lower_snake_case/`（例: `domain/`, `application/`）\n- **Tests**: `tests/test_*.py`\n\n### Code\n- **Classes/Types**: `PascalCase`\n- **Functions/Methods**: `snake_case`\n- **Constants**: `UPPER_SNAKE_CASE`\n- **Variables**: `snake_case`\n\n## Import Patterns\n\n### Import Order\n1. Python 標準ライブラリ\n2. 外部依存（例: `spacy`, `pydantic_settings`）\n3. 自プロジェクト内（パッケージ）\n\n### Module/Package Organization\n- `src/` は Python パッケージとして扱い、同一パッケージ内では **明示的な相対 import**（例: `from .config import settings`）を許容します。\n- DDD + Onion 移行後は、**Domain は外部技術（NLP/永続化）に依存しない**ことを原則とします。\n\n## Code Organization Principles\n\n1. **Single Responsibility**: 1ファイル1責務を保つ\n2. **Testability**: ロジックを分離し、ユニットテスト可能な形にする\n3. **Consistency**: `ruff` による整形・lint と、既存の記述スタイルに揃える\n\n## Module Boundaries\n\n- **Domain**: 純粋なビジネスルール（外部I/Oに依存しない）\n- **Application**: ユースケース境界（入力→処理→出力の流れ、DTO/ポート）\n- **Infrastructure**: 外部ライブラリ、永続化、I/O 実装\n- **Interface**: CLI や（将来の）API\n\n依存方向は原則として「外側 → 内側」で、内側は外側を参照しません。\n\n## Documentation Standards\n\n- 公開関数/クラスには docstring を付ける\n- アルゴリズムや前提が複雑な箇所はコメントで補足する\n- 大きなモジュールには README（もしくは docstring での概要）を用意する\n",
+  "fileStats": {
+    "size": 3735,
+    "lines": 89,
+    "lastModified": "2025-12-13T07:16:55.908Z"
+  },
+  "comments": []
+}
