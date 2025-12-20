@@ -77,6 +77,10 @@ def create_register_use_case(
         settings = Settings()
 
     # Initialize database schema
+    conn = create_db_connection(settings)
+    conn.close()
+
+    # Initialize database schema
     nlp_service = SpacyNlpService(model_name=settings.nlp_model)
     lyrics_repo = DuckDBLyricsRepository(str(settings.db_path_resolved))
     lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))

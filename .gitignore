@@ -213,4 +213,4 @@ __marimo__/
 output.json
 
 # duckdb
-*.duckdb
+*.duckdb*
