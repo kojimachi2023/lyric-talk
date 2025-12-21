@@ -46,7 +46,7 @@ target-version = "py312"
 select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
-addopts = "-vv --cov=src --cov-branch --cov-report=term --durations=10 -n 12"
+addopts = "-vv --ff --cov=src --cov-branch --cov-report=term --cov-fail-under=70 --durations=10 -n 12"
 python_files = "test_*.py"
 testpaths = "tests"
 markers = [

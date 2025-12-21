@@ -1,12 +1,17 @@
 """CLI main entry point for lyric-talk."""
 
-import argparse
 import sys
 from pathlib import Path
 from typing import NoReturn, Optional
 
 import duckdb
+import typer
+from rich.console import Console
+from rich.table import Table
+from rich.tree import Tree
 
+from src.application.use_cases.list_lyrics_corpora import ListLyricsCorporaUseCase
+from src.application.use_cases.list_match_runs import ListMatchRunsUseCase
 from src.application.use_cases.match_text import MatchTextUseCase
 from src.application.use_cases.query_results import QueryResultsUseCase
 from src.application.use_cases.register_lyrics import RegisterLyricsUseCase
@@ -18,6 +23,24 @@ from src.infrastructure.database.duckdb_lyrics_repository import DuckDBLyricsRep
 from src.infrastructure.database.duckdb_match_repository import DuckDBMatchRepository
 from src.infrastructure.database.schema import initialize_database
 from src.infrastructure.nlp.spacy_nlp_service import SpacyNlpService
+
+# Create Typer app
+app = typer.Typer(
+    name="lyric-talk",
+    help="Lyric matching tool using DDD + Onion Architecture",
+    add_completion=False,
+)
+
+# Create Rich console
+console = Console()
+console_err = Console(stderr=True)
+
+# Create subcommand groups
+corpus_app = typer.Typer(help="Manage lyrics corpora")
+run_app = typer.Typer(help="Manage match runs")
+
+app.add_typer(corpus_app, name="corpus")
+app.add_typer(run_app, name="run")
 
 
 def read_text_input(file_path: Optional[str], text: Optional[str]) -> str:
@@ -145,112 +168,359 @@ def create_query_use_case(settings: Optional[Settings] = None) -> QueryResultsUs
     )
 
 
-def handle_register(args: argparse.Namespace) -> None:
-    """Handle register subcommand.
+def create_list_corpora_use_case(
+    settings: Optional[Settings] = None,
+) -> ListLyricsCorporaUseCase:
+    """Create ListLyricsCorporaUseCase with dependencies.
 
     Args:
-        args: Parsed command-line arguments
+        settings: Application settings (uses default if None)
+
+    Returns:
+        ListLyricsCorporaUseCase instance
     """
-    lyrics_text = read_text_input(args.file, args.text)
+    if settings is None:
+        settings = Settings()
+
+    # Initialize database schema
+    conn = create_db_connection(settings)
+    conn.close()
+
+    lyrics_repo = DuckDBLyricsRepository(str(settings.db_path_resolved))
+    lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))
+
+    return ListLyricsCorporaUseCase(
+        lyrics_repository=lyrics_repo,
+        lyric_token_repository=lyric_token_repo,
+    )
+
+
+def create_list_runs_use_case(settings: Optional[Settings] = None) -> ListMatchRunsUseCase:
+    """Create ListMatchRunsUseCase with dependencies.
+
+    Args:
+        settings: Application settings (uses default if None)
+
+    Returns:
+        ListMatchRunsUseCase instance
+    """
+    if settings is None:
+        settings = Settings()
+
+    # Initialize database schema
+    conn = create_db_connection(settings)
+    conn.close()
+
+    match_repo = DuckDBMatchRepository(str(settings.db_path_resolved))
+
+    return ListMatchRunsUseCase(match_repository=match_repo)
+
+
+@corpus_app.command("list")
+def corpus_list(
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of corpora to display"),
+) -> None:
+    """List all lyrics corpora."""
+    use_case = create_list_corpora_use_case()
+
+    try:
+        corpora = use_case.execute(limit=limit)
+
+        if not corpora:
+            console.print("[yellow]No lyrics corpora found. Register some lyrics first.[/yellow]")
+            return
+
+        # Create Rich table
+        table = Table(title=f"Lyrics Corpora (最新 {len(corpora)} 件)")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Title", style="magenta")
+        table.add_column("Artist", style="green")
+        table.add_column("Tokens", justify="right", style="blue")
+        table.add_column("Preview", style="dim")
+        table.add_column("Created", style="dim")
+
+        for corpus in corpora:
+            preview = (
+                corpus.preview_text[:50] + "..."
+                if len(corpus.preview_text) > 50
+                else corpus.preview_text
+            )
+            table.add_row(
+                corpus.lyrics_corpus_id,
+                corpus.title or "(no title)",
+                corpus.artist or "(unknown)",
+                str(corpus.token_count),
+                preview,
+                corpus.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console_err.print(f"[red]Error listing corpora: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@run_app.command("list")
+def run_list(
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of runs to display"),
+) -> None:
+    """List all match runs."""
+    use_case = create_list_runs_use_case()
+
+    try:
+        runs = use_case.execute(limit=limit)
+
+        if not runs:
+            console.print("[yellow]No match runs found. Run some matches first.[/yellow]")
+            return
+
+        # Create Rich table
+        table = Table(title=f"Match Runs (最新 {len(runs)} 件)")
+        table.add_column("Run ID", style="cyan", no_wrap=True)
+        table.add_column("Corpus ID", style="magenta", no_wrap=True)
+        table.add_column("Input Text", style="white")
+        table.add_column("Results", justify="right", style="blue")
+        table.add_column("Timestamp", style="dim")
+
+        for run in runs:
+            input_preview = (
+                run.input_text[:40] + "..." if len(run.input_text) > 40 else run.input_text
+            )
+            table.add_row(
+                run.run_id,
+                run.lyrics_corpus_id,
+                input_preview,
+                str(run.results_count),
+                run.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console_err.print(f"[red]Error listing runs: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def register(
+    file: Optional[str] = typer.Argument(None, help="Path to lyrics text file"),
+    text: Optional[str] = typer.Option(None, "--text", "-t", help="Lyrics text as string"),
+) -> None:
+    """Register lyrics into the database."""
+    lyrics_text = read_text_input(file, text)
     use_case = create_register_use_case()
 
     try:
         corpus_id = use_case.execute(lyrics_text)
-        print(f"Successfully registered lyrics with corpus_id: {corpus_id}")
+        typer.echo(f"Successfully registered lyrics with corpus_id: {corpus_id}")
     except Exception as e:
-        print(f"Error registering lyrics: {e}", file=sys.stderr)
-        sys.exit(1)
+        typer.echo(f"Error registering lyrics: {e}", err=True)
+        raise typer.Exit(1)
 
 
-def handle_match(args: argparse.Namespace) -> None:
-    """Handle match subcommand.
+@app.command()
+def match(
+    corpus_id: Optional[str] = typer.Argument(
+        None, help="Lyrics corpus ID to match against (optional, will prompt if omitted)"
+    ),
+    file: Optional[str] = typer.Argument(None, help="Path to input text file"),
+    text: Optional[str] = typer.Option(None, "--text", "-t", help="Input text as string"),
+) -> None:
+    """Match text against lyrics."""
+    input_text = read_text_input(file, text)
 
-    Args:
-        args: Parsed command-line arguments
-    """
-    input_text = read_text_input(args.file, args.text)
-    corpus_id = args.corpus_id
+    # If corpus_id is not provided, prompt for selection
+    if corpus_id is None:
+        # Check if we're in a TTY (interactive terminal)
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            console_err.print("[red]Error: --corpus-id is required in non-interactive mode.[/red]")
+            console_err.print(
+                "[yellow]Hint: Run 'corpus list' to see available corpora, "
+                "then specify --corpus-id.[/yellow]"
+            )
+            raise typer.Exit(1)
+
+        # Get list of corpora
+        list_use_case = create_list_corpora_use_case()
+        try:
+            corpora = list_use_case.execute(limit=50)
+
+            if len(corpora) == 0:
+                console.print(
+                    "[yellow]No lyrics corpora found. Please register some lyrics first.[/yellow]"
+                )
+                raise typer.Exit(1)
+            elif len(corpora) == 1:
+                # Auto-select the only corpus
+                corpus_id = corpora[0].lyrics_corpus_id
+                console.print(
+                    f"[green]Auto-selected corpus: {corpus_id} "
+                    f"({corpora[0].title or 'no title'})[/green]"
+                )
+            else:
+                # Prompt user to select
+                console.print("[cyan]Available lyrics corpora:[/cyan]")
+                for i, corpus in enumerate(corpora, 1):
+                    console.print(
+                        f"  {i}. {corpus.lyrics_corpus_id} - "
+                        f"{corpus.title or '(no title)'} by {corpus.artist or '(unknown)'}"
+                    )
+
+                # Get user selection
+                while True:
+                    selection = typer.prompt(
+                        f"Select corpus (1-{len(corpora)})", type=int, default=1
+                    )
+                    if 1 <= selection <= len(corpora):
+                        corpus_id = corpora[selection - 1].lyrics_corpus_id
+                        console.print(f"[green]Selected: {corpus_id}[/green]")
+                        break
+                    else:
+                        console.print(
+                            f"[red]Invalid selection. Please choose 1-{len(corpora)}[/red]"
+                        )
+
+        except Exception as e:
+            console_err.print(f"[red]Error listing corpora: {e}[/red]")
+            raise typer.Exit(1)
+
+    # Execute match with selected or provided corpus_id
     use_case = create_match_use_case()
 
     try:
         run_id = use_case.execute(input_text, corpus_id)
-        print(f"Successfully matched text with run_id: {run_id}")
+        typer.echo(f"Successfully matched text with run_id: {run_id}")
     except Exception as e:
-        print(f"Error matching text: {e}", file=sys.stderr)
-        sys.exit(1)
+        typer.echo(f"Error matching text: {e}", err=True)
+        raise typer.Exit(1)
 
 
-def handle_query(args: argparse.Namespace) -> None:
-    """Handle query subcommand.
+@app.command()
+def query(
+    run_id: Optional[str] = typer.Argument(
+        None, help="Match run ID to query (optional, will prompt if omitted)"
+    ),
+) -> None:
+    """Query match results with Rich Tree display."""
+    # If run_id is not provided, prompt for selection
+    if run_id is None:
+        # Check if we're in a TTY (interactive terminal)
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            console_err.print("[red]Error: --run-id is required in non-interactive mode.[/red]")
+            console_err.print(
+                "[yellow]Hint: Run 'run list' to see available runs, then specify run_id.[/yellow]"
+            )
+            raise typer.Exit(1)
 
-    Args:
-        args: Parsed command-line arguments
-    """
+        # Get list of runs
+        list_use_case = create_list_runs_use_case()
+        try:
+            runs = list_use_case.execute(limit=50)
+
+            if len(runs) == 0:
+                console.print(
+                    "[yellow]No match runs found. Please run some matches first.[/yellow]"
+                )
+                raise typer.Exit(1)
+            elif len(runs) == 1:
+                # Auto-select the only run
+                run_id = runs[0].run_id
+                console.print(
+                    f"[green]Auto-selected run: {run_id} ({runs[0].input_text[:30]}...)[/green]"
+                )
+            else:
+                # Prompt user to select
+                console.print("[cyan]Available match runs:[/cyan]")
+                for i, run in enumerate(runs, 1):
+                    input_preview = (
+                        run.input_text[:40] + "..." if len(run.input_text) > 40 else run.input_text
+                    )
+                    console.print(
+                        f"  {i}. {run.run_id} - {input_preview} ({run.results_count} matches)"
+                    )
+
+                # Get user selection
+                while True:
+                    selection = typer.prompt(f"Select run (1-{len(runs)})", type=int, default=1)
+                    if 1 <= selection <= len(runs):
+                        run_id = runs[selection - 1].run_id
+                        console.print(f"[green]Selected: {run_id}[/green]")
+                        break
+                    else:
+                        console.print(f"[red]Invalid selection. Please choose 1-{len(runs)}[/red]")
+
+        except Exception as e:
+            console_err.print(f"[red]Error listing runs: {e}[/red]")
+            raise typer.Exit(1)
+
+    # Execute query with selected or provided run_id
     use_case = create_query_use_case()
 
     try:
-        results = use_case.execute(args.run_id)
+        results = use_case.execute(run_id)
 
         if results is None:
-            print(f"Error: Match run not found: {args.run_id}", file=sys.stderr)
-            sys.exit(1)
+            typer.echo(f"Error: Match run not found: {run_id}", err=True)
+            raise typer.Exit(1)
 
-        # Display results
-        match_run = results["match_run"]
-        print(f"Match Run ID: {match_run.run_id}")
-        print(f"Input Text: {match_run.input_text}")
-        print(f"Timestamp: {match_run.timestamp}")
-        print(f"\nResults: {len(results['results'])} matches")
+        # Display results with Rich Tree
+        match_run = results.match_run
+        console.print(f"\n[bold cyan]Match Run: {match_run.run_id}[/bold cyan]")
+        console.print(f"[dim]Input Text:[/dim] {match_run.input_text}")
+        console.print(f"[dim]Timestamp:[/dim] {match_run.timestamp}")
+        console.print(f"[dim]Matches Found:[/dim] {len(results.items)}\n")
 
-        for idx, result_data in enumerate(results["results"], 1):
-            match_result = result_data["match_result"]
-            resolved_tokens = result_data["resolved_tokens"]
+        # Display summary if available
+        if results.summary:
+            console.print("[bold yellow]Summary:[/bold yellow]")
+            console.print(f"  Reconstructed Surface: {results.summary.reconstructed_surface}")
+            console.print(f"  Reconstructed Reading: {results.summary.reconstructed_reading}")
+            console.print(
+                f"  Stats: exact_surface={results.summary.stats.exact_surface_count}, "
+                f"exact_reading={results.summary.stats.exact_reading_count}, "
+                f"mora_combination={results.summary.stats.mora_combination_count}\n"
+            )
 
-            print(f"\n--- Match {idx} ---")
-            print(f"Match Type: {match_result.match_type}")
-            print(f"Matched Tokens: {len(resolved_tokens)}")
-            for token in resolved_tokens:
-                print(
-                    f"  - {token.surface} (reading: {token.reading.normalized}, "
-                    f"lemma: {token.lemma}, pos: {token.pos})"
+        if len(results.items) == 0:
+            console.print("[yellow]No matches found in this run.[/yellow]")
+        else:
+            # Create Rich Tree for each match
+            for idx, item in enumerate(results.items, 1):
+                # Create tree for this match
+                tree = Tree(
+                    f"[bold green]Match {idx}: {item.match_type}[/bold green]",
+                    guide_style="dim",
                 )
 
+                # Add input token info
+                input_branch = tree.add("[cyan]Input[/cyan]")
+                input_branch.add(f"{item.input.surface} [dim]({item.input.reading})[/dim]")
+
+                # Add matched lyrics tokens
+                tokens_branch = tree.add("[yellow]Matched Lyrics Tokens[/yellow]")
+                for token in item.chosen_lyrics_tokens:
+                    tokens_branch.add(
+                        f"{token.surface} [dim]([/dim]{token.reading}[dim])[/dim] "
+                        f"[dim]│ lemma: {token.lemma} │ pos: {token.pos}[/dim]"
+                    )
+
+                # Add mora trace details if available
+                if item.match_type == "mora_combination" and item.mora_trace:
+                    details_branch = tree.add("[cyan]Mora Trace[/cyan]")
+                    for trace_item in item.mora_trace.items:
+                        details_branch.add(
+                            f"Mora: {trace_item.mora} → "
+                            f"Token: {trace_item.source_token_id} "
+                            f"[dim](index: {trace_item.mora_index})[/dim]"
+                        )
+
+                console.print(tree)
+                console.print()  # Add spacing between matches
+
     except Exception as e:
-        print(f"Error querying results: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
-def create_parser() -> argparse.ArgumentParser:
-    """Create argument parser.
-
-    Returns:
-        Configured argument parser
-    """
-    parser = argparse.ArgumentParser(
-        prog="lyric-talk",
-        description="Lyric matching tool using DDD + Onion Architecture",
-    )
-
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
-
-    # Register subcommand
-    register_parser = subparsers.add_parser("register", help="Register lyrics into the database")
-    register_input_group = register_parser.add_mutually_exclusive_group(required=True)
-    register_input_group.add_argument("file", nargs="?", help="Path to lyrics text file")
-    register_input_group.add_argument("--text", "-t", help="Lyrics text as string")
-
-    # Match subcommand
-    match_parser = subparsers.add_parser("match", help="Match text against lyrics")
-    match_parser.add_argument("corpus_id", help="Lyrics corpus ID to match against")
-    match_input_group = match_parser.add_mutually_exclusive_group(required=True)
-    match_input_group.add_argument("file", nargs="?", help="Path to input text file")
-    match_input_group.add_argument("--text", "-t", help="Input text as string")
-
-    # Query subcommand
-    query_parser = subparsers.add_parser("query", help="Query match results")
-    query_parser.add_argument("run_id", help="Match run ID to query")
-
-    return parser
+        typer.echo(f"Error querying results: {e}", err=True)
+        raise typer.Exit(1)
 
 
 def main() -> NoReturn:
@@ -259,28 +529,17 @@ def main() -> NoReturn:
     Raises:
         SystemExit: Always (normal exit or error)
     """
-    parser = create_parser()
-    args = parser.parse_args()
-
-    if not args.command:
-        parser.print_help()
-        sys.exit(2)
-
     try:
-        if args.command == "register":
-            handle_register(args)
-        elif args.command == "match":
-            handle_match(args)
-        elif args.command == "query":
-            handle_query(args)
-        else:
-            parser.print_help()
-            sys.exit(2)
+        app()
+    except SystemExit:
+        # Typer already handles sys.exit, so re-raise
+        raise
     except KeyboardInterrupt:
-        print("\nInterrupted by user", file=sys.stderr)
+        typer.echo("\nInterrupted by user", err=True)
         sys.exit(130)
-
-    sys.exit(0)
+    except Exception:
+        # Let typer handle unexpected exceptions
+        raise
 
 
 if __name__ == "__main__":

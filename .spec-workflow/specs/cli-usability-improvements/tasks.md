@@ -204,9 +204,9 @@
     - Log
     - Mark completed [x]
 
-### Task 4.2: CLI を Typer アプリに移行（骨格 + 既存互換）
+### Task 4.2: CLI を Typer アプリに移行(骨格 + 既存互換)
 
-- [ ] 4.2. Migrate CLI entry to Typer while keeping entrypoint
+- [x] 4.2. Migrate CLI entry to Typer while keeping entrypoint
   - Files:
     - `src/interface/cli/main.py`
     - `tests/unit/interface/test_cli_main.py`
@@ -225,7 +225,7 @@
 
 ### Task 4.3: `corpus list` / `run list` コマンド追加（非対話対応の基盤）
 
-- [ ] 4.3. Add list commands with Rich tables
+- [x] 4.3. Add list commands with Rich tables
   - Files:
     - `src/interface/cli/main.py`
     - `tests/unit/interface/test_cli_main.py`
@@ -243,7 +243,7 @@
 
 ### Task 4.4: `match` の corpus_id 省略時に一覧→選択（TTYのみ）
 
-- [ ] 4.4. Add interactive selection for `match` when corpus_id omitted
+- [x] 4.4. Add interactive selection for `match` when corpus_id omitted
   - Files:
     - `src/interface/cli/main.py`
     - `tests/unit/interface/test_cli_main.py`
@@ -264,7 +264,7 @@
 
 ### Task 4.5: `query` の run_id 省略時に一覧→選択 + Rich表示（Tree）
 
-- [ ] 4.5. Add interactive selection + rich display for `query`
+- [x] 4.5. Add interactive selection + rich display for `query`
   - Files:
     - `src/interface/cli/main.py`
     - `tests/unit/interface/test_cli_main.py`
@@ -290,7 +290,7 @@
 
 ### Task 5.1: 統合テストに list / DTO 化の影響を反映
 
-- [ ] 5.1. Update integration test(s) for pipeline stability
+- [x] 5.1. Update integration test(s) for pipeline stability
   - File: `tests/integration/test_full_pipeline.py`
   - `register → match(corpus_id指定) → query(run_id指定)` の既存フローが維持されることを確認
   - DTO 化に伴う表示/戻り値の変更があっても、統合フローが壊れないことを担保
@@ -306,7 +306,7 @@
 
 ### Task 5.2: README の CLI 使い方を更新
 
-- [ ] 5.2. Update documentation for new CLI UX
+- [x] 5.2. Update documentation for new CLI UX
   - File: `README.md`
   - `corpus list` / `run list`、`match/query` の省略時挙動、非TTY時の注意を追記
   - _Requirements: Requirement 4, Requirement 5_
