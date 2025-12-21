@@ -2,10 +2,10 @@
 
 ## Project Type
 
-- **Python 製 CLI ツール**（日本語歌詞を素材に、入力文を再現するためのテキストマッチング）
-- 実行形態: コマンドライン実行 → DuckDB への永続化
-- 将来的な拡張候補: LLM による言い換え・候補生成（※現状のコア機能には未統合）
-- アーキテクチャ: **DDD + Onion Architecture** を採用
+- **Python 製 CLI ツール**（日本語歌詞を素材に、入力文を“歌詞断片の組み合わせ”で再現するテキストマッチング）
+- 実行形態: コマンドライン実行 → DuckDB へ永続化（コーパス/トークン/マッチ履歴） → `query` で照会
+- 将来的な拡張候補: LLM による言い換え・候補生成（`ollama` を依存として保持。現状のコアには未統合）
+- アーキテクチャ: **DDD + Onion Architecture**（Domain中心の依存方向を維持）
 
 ## Core Technologies
 
@@ -14,8 +14,9 @@
 - **Language**: Python >= 3.12
 - **Runtime/Compiler**: CPython
 - **Language-specific tools**:
-  - 依存管理/実行: `uv`
+  - 依存管理/実行: `uv`（`uv sync`, `uv run ...`）
   - パッケージング: `hatchling`
+  - CLI 実装: `typer` + `rich`
   - エントリポイント: `lyric-talk = "src.interface.cli.main:main"`
 
 ### Key Dependencies/Libraries
@@ -27,10 +28,17 @@
 - **pydantic (>=2.0.0), pydantic-settings (>=2.0.0)**: ドメインモデル定義と設定管理
 - **DuckDB (>=1.4.3)**: 歌詞コーパス、トークン、マッチ結果の永続化
 - **fugashi / unidic-lite / ipadic**: 日本語トークナイザ・辞書
+- **typer (>=0.15.0)**: CLI（サブコマンド/オプション/引数/プロンプト）
+- **rich (>=14.0.0)**: CLI表示（テーブル/ツリー）
 
 #### 拡張準備
 
 - **ollama (>=0.6.1)**: ローカルLLM連携（将来的な言い換え・候補生成用途）
+
+#### 開発支援（steering/spec運用）
+
+- **@pimzino/spec-workflow-mcp**（Node依存 / `pnpm` 管理）: steering/spec のダッシュボード承認フロー
+- **@upstash/context7-mcp**: ライブラリドキュメント参照補助
 
 ### Application Architecture
 
@@ -53,13 +61,14 @@
   
 - **Interface 層**: CLI アダプタ
   - CLI エントリポイント: `src.interface.cli.main:main`
-  - コマンド: `register`, `match`, `query`
+  - コマンド: `register`, `match`, `query`、および一覧系 `corpus list`, `run list`
 
 ### Data Storage
 
 - **Primary storage**: DuckDB（`lyrics_corpus`, `lyric_tokens`, `match_runs`, `match_results` テーブル）
-- **Output**: JSON ファイル（`query` コマンドの出力）
+- **Output**: CLI表示（`rich`）
 - **Schema**: `infrastructure/database/schema.py` で定義・初期化
+- **Default DB file**: `lyric_talk.duckdb`（`Settings.db_path`）
 
 ### External Integrations
 
@@ -68,15 +77,18 @@
 
 ### Monitoring & Dashboard Technologies
 
-- **CLI ログ出力**が中心
-- **State Management**: DuckDB + JSON ファイル出力
+- **CLI 表示**: `rich` によるテーブル（一覧）/ツリー（結果）
+- **State Management**: DuckDB（履歴と再現性の担保）
+- **spec/steering 承認フロー**: `spec-workflow-mcp` ダッシュボード（開発プロセス用）
 
 ## Development Environment
 
 ### Build & Development Tools
 
 - **Build System**: `hatchling`
-- **Package Management**: `uv`（テスト/静的解析の実行手順として `uv run` を採用）
+- **Package Management**:
+  - Python: `uv`（テスト/静的解析の実行手順として `uv run` を採用）
+  - Node（steering/spec運用）: `pnpm`
 - **Development workflow**:
   - `uv run ...` で実行/テスト/静的解析
 
@@ -85,7 +97,7 @@
 - **Static Analysis / Lint**: `ruff`
 - **Formatting**: `ruff`（`ruff check . --fix`）
 - **Testing Framework**: `pytest`（`pytest-xdist` により並列実行）
-- **Coverage**: `pytest-cov`
+- **Coverage**: `pytest-cov`（`pyproject.toml` で最低カバレッジ閾値を設定）
 
 ### Version Control & Collaboration
 
@@ -109,8 +121,8 @@
 
 ### Performance Requirements
 
-- 形態素解析（spaCy + GiNZA）がボトルネック
-- マッチングは説明可能性を優先（全体最適探索は将来課題）
+- 形態素解析（spaCy + GiNZA）が主要ボトルネック（モデルロード/解析時間）
+- マッチングは説明可能性を優先（ルールベース。全体最適探索は将来課題）
 - 典型的な歌詞入力（数百〜数千トークン）で実用的な処理時間を維持
 
 ### Compatibility Requirements
@@ -138,9 +150,11 @@
 3. **表層形→読み→モーラの優先度付きマッチング**: 説明可能性とエラー追跡の容易さを重視
 4. **pydantic によるドメインモデル定義**: 型安全性とバリデーション
 5. **DuckDB による永続化**: 軽量で組み込み可能、SQL による柔軟なクエリ
+6. **Typer + Rich による CLI**: 対話的な利用（選択/プロンプト）と可読性の高い表示を両立するため
 
 ## Known Limitations
 
 - `ja_ginza` のロード時間が初回実行時に影響
 - マッチングは貪欲法（最初に見つかった候補を採用）で、全体最適探索は未実装
 - LLM による言い換え機能は未統合
+- DuckDB のDBファイルはローカルに生成されるため、チーム運用では保存場所/コミット対象の取り扱いを明確にする必要がある
