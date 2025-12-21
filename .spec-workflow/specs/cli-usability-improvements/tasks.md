@@ -81,7 +81,7 @@
 
 ### Task 1.4: QueryResultsUseCase を DTO 化 + 再構成サマリーを実装（Red→Green）
 
-- [ ] 1.4. Refactor `QueryResultsUseCase` to return `QueryResultsDto`
+- [x] 1.4. Refactor `QueryResultsUseCase` to return `QueryResultsDto`
   - Files:
     - `src/application/dtos/query_results_dto.py`
     - `src/application/use_cases/query_results.py`
@@ -188,7 +188,7 @@
 
 ### Task 4.1: Typer + Rich を依存関係に追加
 
-- [ ] 4.1. Add CLI dependencies (typer, rich)
+- [x] 4.1. Add CLI dependencies (typer, rich)
   - File: `pyproject.toml`
   - `typer` と `rich` を `project.dependencies` に追加（uvで解決できる形）
   - _Requirements: Requirement 4, Requirement 5_
