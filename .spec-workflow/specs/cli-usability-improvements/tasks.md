@@ -82,6 +82,9 @@
 ### Task 1.4: QueryResultsUseCase を DTO 化 + 再構成サマリーを実装（Red→Green）
 
 - [x] 1.4. Refactor `QueryResultsUseCase` to return `QueryResultsDto`
+  - File: `src/application/dtos/query_results_dto.py`
+  - `execute(run_id: str) -> QueryResultsDto | None`
+  - 統合テスト更新完了（tests/integration/test_full_pipeline.py）
   - Files:
     - `src/application/dtos/query_results_dto.py`
     - `src/application/use_cases/query_results.py`

@@ -109,26 +109,23 @@ class TestFullPipeline:
         results = query_use_case.execute(run_id)
 
         assert results is not None
-        assert results["match_run"].run_id == run_id
-        assert results["match_run"].input_text == input_text
+        assert results.match_run.run_id == run_id
+        assert results.match_run.input_text == input_text
 
         # Debug: Print results structure
-        print(f"\nDebug - Number of results: {len(results['results'])}")
-        for idx, result_data in enumerate(results["results"]):
-            match_result = result_data["match_result"]
-            resolved_tokens = result_data["resolved_tokens"]
+        print(f"\nDebug - Number of results: {len(results.items)}")
+        for idx, item in enumerate(results.items):
             print(f"Result {idx}:")
-            print(f"  - input_token: {match_result.input_token}")
-            print(f"  - match_type: {match_result.match_type}")
-            print(f"  - matched_token_ids: {match_result.matched_token_ids}")
-            print(f"  - resolved_tokens count: {len(resolved_tokens)}")
+            print(f"  - input_token: {item.input.surface}")
+            print(f"  - match_type: {item.match_type}")
+            print(f"  - chosen_lyrics_tokens count: {len(item.chosen_lyrics_tokens)}")
 
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
 
         # For integration test, we verify the pipeline runs without errors
         # Actual matching quality is tested in unit tests
         # At least one result should exist (even if it's a NO_MATCH)
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
 
     def test_no_match_scenario(self, register_use_case, match_use_case, query_use_case):
         """Test scenario where no matches are found."""
@@ -148,7 +145,7 @@ class TestFullPipeline:
         results = query_use_case.execute(run_id)
 
         assert results is not None
-        assert results["match_run"].run_id == run_id
+        assert results.match_run.run_id == run_id
 
     def test_duplicate_lyrics_registration(self, register_use_case):
         """Test that duplicate lyrics reuse existing corpus_id."""
@@ -180,4 +177,4 @@ class TestFullPipeline:
 
         assert results is not None
         # Should have matches for both tokens
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
