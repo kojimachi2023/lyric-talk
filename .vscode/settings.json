@@ -83,7 +83,9 @@
     "xargs": false,
     "eval": false,
     "Invoke-Expression": false,
-    "iex": false
+    "iex": false,
+    "git reset": false,
+    "git checkout": false
   },
   "json.schemaDownload.enable": true,
   "github.copilot.chat.codesearch.enabled": true,

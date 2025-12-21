@@ -132,6 +132,33 @@ class DuckDBLyricsRepository(LyricsRepository):
         finally:
             conn.close()
 
+    def list_lyrics_corpora(self, limit: int) -> list[LyricsCorpus]:
+        """Get lyrics corpus list.
+
+        Returns corpora ordered by created_at in descending order (newest first).
+
+        Args:
+            limit: Maximum number of corpora to return
+
+        Returns:
+            List of lyrics corpora (newest first)
+        """
+        conn = self._get_connection()
+        try:
+            result = conn.execute(
+                """
+                SELECT corpus_id, title, artist, content_hash, created_at
+                FROM lyrics_corpus
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                [limit],
+            ).fetchall()
+
+            return [self._row_to_corpus(row) for row in result]
+        finally:
+            conn.close()
+
     def _row_to_corpus(self, row) -> LyricsCorpus:
         """Convert database row to LyricsCorpus."""
         corpus_id, title, artist, content_hash, created_at = row

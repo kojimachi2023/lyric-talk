@@ -27,7 +27,7 @@
 
 ### Task 1.1: CLI向けサマリーDTOを追加
 
-- [ ] 1.1. Add summary DTOs for CLI (Corpus / Run)
+- [x] 1.1. Add summary DTOs for CLI (Corpus / Run)
   - File: `src/application/dtos/cli_summaries.py`
   - `LyricsCorpusSummaryDto` / `MatchRunSummaryDto` を pydantic DTO として定義する
   - DTO は CLI 表示に必要な概要情報（ID、title/artist、created_at、token_count、preview_text、timestamp、results_count、input_text(全文) 等）を保持する
@@ -43,7 +43,7 @@
 
 ### Task 1.2: ListLyricsCorporaUseCase（一覧取得）を追加（Red→Green）
 
-- [ ] 1.2. Implement `ListLyricsCorporaUseCase` with tests
+- [x] 1.2. Implement `ListLyricsCorporaUseCase` with tests
   - Files:
     - `src/application/use_cases/list_lyrics_corpora.py`
     - `tests/unit/application/test_list_lyrics_corpora.py`
@@ -63,7 +63,7 @@
 
 ### Task 1.3: ListMatchRunsUseCase（実行履歴一覧）を追加（Red→Green）
 
-- [ ] 1.3. Implement `ListMatchRunsUseCase` with tests
+- [x] 1.3. Implement `ListMatchRunsUseCase` with tests
   - Files:
     - `src/application/use_cases/list_match_runs.py`
     - `tests/unit/application/test_list_match_runs.py`
@@ -106,16 +106,16 @@
 
 ### Task 2.1: Repositoryインターフェースに「一覧/件数」APIを追加
 
-- [ ] 2.1. Extend repository interfaces for listing / counting
+- [x] 2.1. Extend repository interfaces for listing / counting
   - Files:
     - `src/domain/repositories/lyrics_repository.py`
     - `src/domain/repositories/lyric_token_repository.py`
     - `src/domain/repositories/match_repository.py`
   - 追加する抽象メソッド（命名は実装側と一貫すること）例:
-    - `LyricsRepository.list_recent(limit: int) -> list[LyricsCorpus]`
+    - `LyricsRepository.list_lyric_corpora (limit: int) -> list[LyricsCorpus]`
     - `LyricTokenRepository.count_by_lyrics_corpus_id(lyrics_corpus_id: str) -> int`
     - `LyricTokenRepository.list_by_lyrics_corpus_id(lyrics_corpus_id: str, limit: int) -> list[LyricToken]`
-    - `MatchRepository.list_recent(limit: int) -> list[MatchRun]`（必要なら results_count 用の別メソッドも）
+    - `MatchRepository.list_match_runs (limit: int) -> list[MatchRun]`（必要なら results_count 用の別メソッドも）
   - _Requirements: Requirement 3(8)_
   - _Prompt:
     Implement the task for spec cli-usability-improvements, first run spec-workflow-guide to get the workflow guide then implement the task:
@@ -132,7 +132,7 @@
 
 ### Task 3.1: DuckDBLyricsRepository にコーパス一覧取得を追加（Red→Green）
 
-- [ ] 3.1. Add `list_recent()` to DuckDBLyricsRepository with tests
+- [x] 3.1. Add `list_lyric_corpora()` to DuckDBLyricsRepository with tests
   - Files:
     - `src/infrastructure/database/duckdb_lyrics_repository.py`
     - `tests/unit/infrastructure/test_duckdb_lyrics_repository.py`
@@ -140,7 +140,7 @@
   - _Requirements: Requirement 1, Requirement 3_
   - _Prompt:
     Implement the task for spec cli-usability-improvements, first run spec-workflow-guide to get the workflow guide then implement the task:
-    Role: Database Engineer + Python Developer (TDD) | Task: Write a failing test for `DuckDBLyricsRepository.list_recent()` then implement it. Ensure schema compatibility and deterministic ordering. | Restrictions: Use temp DB fixtures; do not load all tokens. | Leverage: existing tests and schema init helpers in `tests/unit/infrastructure/conftest.py` | Success: new tests pass.
+    Role: Database Engineer + Python Developer (TDD) | Task: Write a failing test for `DuckDBLyricsRepository.list_lyric_corpora()` then implement it. Ensure schema compatibility and deterministic ordering. | Restrictions: Use temp DB fixtures; do not load all tokens. | Leverage: existing tests and schema init helpers in `tests/unit/infrastructure/conftest.py` | Success: new tests pass.
     Instructions:
     - Mark in-progress [-]
     - Confirm Red then Green
@@ -149,7 +149,7 @@
 
 ### Task 3.2: DuckDBLyricTokenRepository に token_count / preview 用 API を追加（Red→Green）
 
-- [ ] 3.2. Add `count_by_lyrics_corpus_id()` and `list_by_lyrics_corpus_id()` with tests
+- [x] 3.2. Add `count_by_lyrics_corpus_id()` and `list_by_lyrics_corpus_id()` with tests
   - Files:
     - `src/infrastructure/database/duckdb_lyric_token_repository.py`
     - `tests/unit/infrastructure/test_duckdb_lyric_token_repository.py`
@@ -166,7 +166,7 @@
 
 ### Task 3.3: DuckDBMatchRepository に実行履歴一覧取得（+ results_count）を追加（Red→Green）
 
-- [ ] 3.3. Add `list_recent()` (and results_count support) with tests
+- [x] 3.3. Add `list_match_runs()` (and results_count support) with tests
   - Files:
     - `src/infrastructure/database/duckdb_match_repository.py`
     - `tests/unit/infrastructure/test_duckdb_match_repository.py`

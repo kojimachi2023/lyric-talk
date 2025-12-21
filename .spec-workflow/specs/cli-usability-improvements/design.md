@@ -107,7 +107,7 @@ flowchart TD
 
 #### Repository 拡張（案）
 
-- `LyricsRepository.list_lyric_corpuses(limit: int) -> list[LyricsCorpus]`
+- `LyricsRepository.list_lyric_corpora(limit: int) -> list[LyricsCorpus]`
   - コーパスのメタデータを取得する。limit は作成日時降順での絞り込み
 - `LyricTokenRepository.count_lyric_tokens_by_corpus_id(corpus_id: str) -> int`
 - `LyricTokenRepository.list_lyric_tokens_by_corpus_id(corpus_id: str, limit_tokens: int) -> list[LyricToken]`
@@ -257,7 +257,7 @@ flowchart TD
 ### Integration Testing
 
 - DuckDB 実装を使った「register → match → query」フロー
-- 一覧 API（list_recent 等）の SQL がスキーマと整合していること
+- 一覧 APIの SQL がスキーマと整合していること
 
 ### End-to-End Testing
 

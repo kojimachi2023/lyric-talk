@@ -92,6 +92,38 @@ class LyricTokenRepository(ABC):
         pass
 
     @abstractmethod
+    def count_by_lyrics_corpus_id(self, lyrics_corpus_id: str) -> int:
+        """
+        指定された歌詞コーパスのトークン数を取得する
+
+        CLI一覧表示のサマリー情報で使用。
+
+        Args:
+            lyrics_corpus_id: 歌詞コーパスID
+
+        Returns:
+            トークン数
+        """
+        pass
+
+    @abstractmethod
+    def list_by_lyrics_corpus_id(self, lyrics_corpus_id: str, limit: int) -> list[LyricToken]:
+        """
+        指定された歌詞コーパスの先頭Nトークンを取得する
+
+        CLI一覧表示のプレビューテキスト生成で使用。
+        line_index, token_index の昇順で返す。
+
+        Args:
+            lyrics_corpus_id: 歌詞コーパスID
+            limit: 取得する最大件数
+
+        Returns:
+            歌詞トークンのリスト（順序保証）
+        """
+        pass
+
+    @abstractmethod
     def find_by_token_id(self, token_id: str) -> Optional[LyricToken]:
         """
         トークンIDで歌詞トークンを取得する
