@@ -240,6 +240,60 @@ class DuckDBLyricTokenRepository(LyricTokenRepository):
         finally:
             conn.close()
 
+    def count_by_lyrics_corpus_id(self, lyrics_corpus_id: str) -> int:
+        """Count tokens for a specific lyrics corpus.
+
+        Args:
+            lyrics_corpus_id: Lyrics corpus ID
+
+        Returns:
+            Number of tokens in the corpus
+        """
+        conn = self._get_connection()
+        try:
+            result = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM lyric_tokens
+                WHERE lyrics_corpus_id = ?
+                """,
+                [lyrics_corpus_id],
+            ).fetchone()
+
+            return result[0] if result else 0
+        finally:
+            conn.close()
+
+    def list_by_lyrics_corpus_id(self, lyrics_corpus_id: str, limit: int) -> list[LyricToken]:
+        """Get first N tokens for a specific corpus.
+
+        Returns tokens ordered by line_index and token_index in ascending order.
+
+        Args:
+            lyrics_corpus_id: Lyrics corpus ID
+            limit: Maximum number of tokens to return
+
+        Returns:
+            List of lyric tokens (ordered by position)
+        """
+        conn = self._get_connection()
+        try:
+            result = conn.execute(
+                """
+                SELECT token_id, lyrics_corpus_id, surface, reading,
+                       lemma, pos, line_index, token_index, moras_json
+                FROM lyric_tokens
+                WHERE lyrics_corpus_id = ?
+                ORDER BY line_index ASC, token_index ASC
+                LIMIT ?
+                """,
+                [lyrics_corpus_id, limit],
+            ).fetchall()
+
+            return [self._row_to_token(row) for row in result]
+        finally:
+            conn.close()
+
     def _row_to_token(self, row) -> LyricToken:
         """Convert database row to LyricToken."""
         (

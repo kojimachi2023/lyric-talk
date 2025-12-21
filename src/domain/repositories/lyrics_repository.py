@@ -99,3 +99,18 @@ class LyricsRepository(ABC):
             lyrics_corpus_id: 削除する歌詞コーパスID
         """
         pass
+
+    @abstractmethod
+    def list_lyrics_corpora(self, limit: int) -> list[LyricsCorpus]:
+        """
+        最近追加された歌詞コーパスのリストを取得する
+
+        CLI対話選択機能で使用。作成日時の降順で返す。
+
+        Args:
+            limit: 取得する最大件数
+
+        Returns:
+            歌詞コーパスのリスト（新しい順）
+        """
+        pass

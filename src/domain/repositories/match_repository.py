@@ -75,6 +75,21 @@ class MatchRepository(ABC):
         """
         pass
 
+    @abstractmethod
+    def list_match_runs(self, limit: int) -> list[MatchRun]:
+        """
+        最近実行されたマッチング実行のリストを取得する
+
+        CLI対話選択機能で使用。タイムスタンプの降順で返す。
+
+        Args:
+            limit: 取得する最大件数
+
+        Returns:
+            マッチング実行のリスト（新しい順、results含む）
+        """
+        pass
+
     # エイリアスメソッド（後方互換性のため）
     def save_run(self, match_run: MatchRun) -> str:
         """save()のエイリアス（後方互換性）"""

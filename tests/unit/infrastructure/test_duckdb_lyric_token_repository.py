@@ -217,3 +217,164 @@ def test_repositories_isolation(temp_db):
     results = repo.find_by_surface("東京", "corpus-002")
     assert len(results) == 1
     assert results[0].lyrics_corpus_id == "corpus-002"
+
+
+def test_count_by_lyrics_corpus_id_empty(temp_db_with_corpus):
+    """Test count_by_lyrics_corpus_id with no tokens."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Empty corpus should have count 0
+    count = repo.count_by_lyrics_corpus_id(corpus_id)
+    assert count == 0
+
+
+def test_count_by_lyrics_corpus_id_single(temp_db_with_corpus):
+    """Test count_by_lyrics_corpus_id with single token."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Create and save token
+    token = LyricToken(
+        lyrics_corpus_id=corpus_id,
+        surface="東京",
+        reading=Reading(raw="トウキョウ"),
+        lemma="東京",
+        pos="名詞",
+        line_index=0,
+        token_index=0,
+    )
+    repo.save(token)
+
+    # Count should be 1
+    count = repo.count_by_lyrics_corpus_id(corpus_id)
+    assert count == 1
+
+
+def test_count_by_lyrics_corpus_id_multiple(temp_db_with_corpus):
+    """Test count_by_lyrics_corpus_id with multiple tokens."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Create and save multiple tokens
+    tokens = [
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="東京",
+            reading=Reading(raw="トウキョウ"),
+            lemma="東京",
+            pos="名詞",
+            line_index=0,
+            token_index=0,
+        ),
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="へ",
+            reading=Reading(raw="エ"),
+            lemma="へ",
+            pos="助詞",
+            line_index=0,
+            token_index=1,
+        ),
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="行く",
+            reading=Reading(raw="イク"),
+            lemma="行く",
+            pos="動詞",
+            line_index=0,
+            token_index=2,
+        ),
+    ]
+    repo.save_many(tokens)
+
+    # Count should be 3
+    count = repo.count_by_lyrics_corpus_id(corpus_id)
+    assert count == 3
+
+
+def test_list_by_lyrics_corpus_id_empty(temp_db_with_corpus):
+    """Test list_by_lyrics_corpus_id with no tokens."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Empty corpus should return empty list
+    tokens = repo.list_by_lyrics_corpus_id(corpus_id, limit=10)
+    assert tokens == []
+
+
+def test_list_by_lyrics_corpus_id_ordered(temp_db_with_corpus):
+    """Test list_by_lyrics_corpus_id returns tokens in correct order."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Create tokens in random order
+    tokens = [
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="へ",
+            reading=Reading(raw="エ"),
+            lemma="へ",
+            pos="助詞",
+            line_index=0,
+            token_index=1,
+        ),
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="東京",
+            reading=Reading(raw="トウキョウ"),
+            lemma="東京",
+            pos="名詞",
+            line_index=0,
+            token_index=0,
+        ),
+        LyricToken(
+            lyrics_corpus_id=corpus_id,
+            surface="行く",
+            reading=Reading(raw="イク"),
+            lemma="行く",
+            pos="動詞",
+            line_index=0,
+            token_index=2,
+        ),
+    ]
+    # Save in random order
+    for token in tokens:
+        repo.save(token)
+
+    # List should be in line_index, token_index order
+    result = repo.list_by_lyrics_corpus_id(corpus_id, limit=10)
+    assert len(result) == 3
+    assert result[0].surface == "東京"  # line_index=0, token_index=0
+    assert result[1].surface == "へ"  # line_index=0, token_index=1
+    assert result[2].surface == "行く"  # line_index=0, token_index=2
+
+
+def test_list_by_lyrics_corpus_id_respects_limit(temp_db_with_corpus):
+    """Test list_by_lyrics_corpus_id respects limit parameter."""
+    db_path, corpus_id = temp_db_with_corpus
+    repo = DuckDBLyricTokenRepository(str(db_path))
+
+    # Create 5 tokens
+    tokens = []
+    for i in range(5):
+        tokens.append(
+            LyricToken(
+                lyrics_corpus_id=corpus_id,
+                surface=f"token{i}",
+                reading=Reading(raw="トークン"),
+                lemma=f"token{i}",
+                pos="名詞",
+                line_index=0,
+                token_index=i,
+            )
+        )
+    repo.save_many(tokens)
+
+    # Request only 3
+    result = repo.list_by_lyrics_corpus_id(corpus_id, limit=3)
+    assert len(result) == 3
+    # Should get first 3 in order
+    assert result[0].surface == "token0"
+    assert result[1].surface == "token1"
+    assert result[2].surface == "token2"

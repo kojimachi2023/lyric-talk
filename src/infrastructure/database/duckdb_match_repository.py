@@ -226,6 +226,64 @@ class DuckDBMatchRepository(MatchRepository):
             results=results or [],
         )
 
+    def list_match_runs(self, limit: int) -> list[MatchRun]:
+        """Get recent match runs list.
+
+        Returns runs ordered by timestamp in descending order (newest first).
+
+        Args:
+            limit: Maximum number of runs to return
+
+        Returns:
+            List of match runs (newest first, with results included)
+        """
+        conn = self._get_connection()
+        try:
+            # Get runs ordered by timestamp
+            runs_rows = conn.execute(
+                """
+                SELECT run_id, lyrics_corpus_id, input_text, timestamp, config_json
+                FROM match_runs
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                [limit],
+            ).fetchall()
+
+            runs = []
+            for run_row in runs_rows:
+                run_id, lyrics_corpus_id, input_text, timestamp, config_json = run_row
+                config = json.loads(config_json)
+
+                # Get results for this run
+                results_rows = conn.execute(
+                    """
+                    SELECT result_id, run_id, token_id, input_token,
+                           input_reading, match_type, matched_token_ids_json,
+                           mora_details_json, input_token_index
+                    FROM match_results
+                    WHERE run_id = ?
+                    ORDER BY input_token_index
+                    """,
+                    [run_id],
+                ).fetchall()
+
+                results = [self._row_to_result(row) for row in results_rows]
+
+                run = MatchRun(
+                    run_id=run_id,
+                    lyrics_corpus_id=lyrics_corpus_id,
+                    input_text=input_text,
+                    timestamp=timestamp,
+                    config=config,
+                    results=results,
+                )
+                runs.append(run)
+
+            return runs
+        finally:
+            conn.close()
+
     def _row_to_result(self, row) -> MatchResult:
         """Convert database row to MatchResult (immutable value object)."""
         (

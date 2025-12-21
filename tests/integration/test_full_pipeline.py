@@ -90,7 +90,11 @@ class TestFullPipeline:
         )
 
     def test_full_pipeline(self, register_use_case, match_use_case, query_use_case):
-        """Test full pipeline: register → match → query."""
+        """Test full pipeline: register → match → query.
+
+        This test verifies the end-to-end flow remains stable after DTO refactoring.
+        QueryResultsUseCase now returns QueryResultsDto instead of raw domain models.
+        """
         # 1. Register lyrics
         lyrics_text = "東京の空は青い\n桜が咲いている"
         corpus_id = register_use_case.execute(lyrics_text)
@@ -99,39 +103,44 @@ class TestFullPipeline:
         assert corpus_id.startswith("corpus_")
 
         # 2. Match input text
-        input_text = "東京は青い空です"
+        input_text = "京都の青い皿いる？"
         run_id = match_use_case.execute(input_text, corpus_id)
 
         assert run_id is not None
         assert run_id.startswith("run_")
 
-        # 3. Query results
+        # 3. Query results - now returns QueryResultsDto
         results = query_use_case.execute(run_id)
 
         assert results is not None
-        assert results["match_run"].run_id == run_id
-        assert results["match_run"].input_text == input_text
+        # Verify DTO structure
+        assert results.match_run.run_id == run_id
+        assert results.match_run.input_text == input_text
+        assert results.match_run.lyrics_corpus_id == corpus_id
+        assert results.summary.reconstructed_reading == "キョウトノアオイサライル"
+        assert hasattr(results, "items"), "QueryResultsDto should have items field"
+        assert hasattr(results, "summary"), "QueryResultsDto should have summary field"
 
         # Debug: Print results structure
-        print(f"\nDebug - Number of results: {len(results['results'])}")
-        for idx, result_data in enumerate(results["results"]):
-            match_result = result_data["match_result"]
-            resolved_tokens = result_data["resolved_tokens"]
+        print(f"\nDebug - Number of results: {len(results.items)}")
+        for idx, item in enumerate(results.items):
             print(f"Result {idx}:")
-            print(f"  - input_token: {match_result.input_token}")
-            print(f"  - match_type: {match_result.match_type}")
-            print(f"  - matched_token_ids: {match_result.matched_token_ids}")
-            print(f"  - resolved_tokens count: {len(resolved_tokens)}")
+            print(f"  - input_token: {item.input.surface}")
+            print(f"  - match_type: {item.match_type}")
+            print(f"  - chosen_lyrics_tokens count: {len(item.chosen_lyrics_tokens)}")
 
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
 
         # For integration test, we verify the pipeline runs without errors
         # Actual matching quality is tested in unit tests
         # At least one result should exist (even if it's a NO_MATCH)
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
 
     def test_no_match_scenario(self, register_use_case, match_use_case, query_use_case):
-        """Test scenario where no matches are found."""
+        """Test scenario where no matches are found.
+
+        Verifies DTO structure is maintained even with no exact matches.
+        """
         # 1. Register lyrics
         lyrics_text = "東京の空は青い"
         corpus_id = register_use_case.execute(lyrics_text)
@@ -144,11 +153,12 @@ class TestFullPipeline:
 
         assert run_id is not None
 
-        # 3. Query results
+        # 3. Query results - returns QueryResultsDto
         results = query_use_case.execute(run_id)
 
         assert results is not None
-        assert results["match_run"].run_id == run_id
+        assert results.match_run.run_id == run_id
+        assert hasattr(results, "items"), "QueryResultsDto should have items field"
 
     def test_duplicate_lyrics_registration(self, register_use_case):
         """Test that duplicate lyrics reuse existing corpus_id."""
@@ -162,7 +172,10 @@ class TestFullPipeline:
         assert corpus_id1 == corpus_id2
 
     def test_multiple_matches_in_query(self, register_use_case, match_use_case, query_use_case):
-        """Test querying results with multiple matches."""
+        """Test querying results with multiple matches.
+
+        Verifies DTO structure handles multiple match results correctly.
+        """
         # Register lyrics with repeated words
         lyrics_text = "空を見上げる 空が青い 空は広い"
         corpus_id = register_use_case.execute(lyrics_text)
@@ -175,9 +188,10 @@ class TestFullPipeline:
 
         assert run_id is not None
 
-        # Query and verify multiple matches
+        # Query and verify multiple matches - returns QueryResultsDto
         results = query_use_case.execute(run_id)
 
         assert results is not None
         # Should have matches for both tokens
-        assert len(results["results"]) > 0
+        assert len(results.items) > 0
+        assert hasattr(results, "summary"), "QueryResultsDto should have summary field"

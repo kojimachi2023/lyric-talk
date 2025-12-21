@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/cli-usability-improvements/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-20T14:51:50.276Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766242310271_ti4e91ln0",
+      "approvalTitle": "タスク: cli-usability-improvements (TDD版 tasks.md)"
+    }
+  ]
+}

@@ -8,8 +8,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
-# Avoid circular import by importing at runtime
-# Note: MatchResult import is done lazily for forward reference resolution
+from src.domain.models.match_result import MatchResult
 
 
 class MatchRun(BaseModel):
@@ -36,9 +35,7 @@ class MatchRun(BaseModel):
     timestamp: datetime
     input_text: str
     config: Dict[str, Any]
-    results: List[Any] = Field(
-        default_factory=list
-    )  # List[MatchResult], using Any to avoid circular import
+    results: List[MatchResult] = Field(default_factory=list)
 
     # エンティティは可変なのでfrozen=Falseがデフォルト（明示的に設定）
     model_config = {"frozen": False}
