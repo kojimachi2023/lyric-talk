@@ -25,11 +25,13 @@ class RegisterLyricsUseCase:
         self.lyrics_repository = lyrics_repository
         self.lyric_token_repository = lyric_token_repository
 
-    def execute(self, lyrics_text: str) -> str:
+    def execute(self, lyrics_text: str, artist=None, title=None) -> str:
         """Register lyrics and return corpus_id.
 
         Args:
             lyrics_text: Lyrics text to register
+            artist: (Optional) Artist name
+            title: (Optional) Song title
 
         Returns:
             corpus_id: ID of the registered or existing corpus
@@ -54,6 +56,8 @@ class RegisterLyricsUseCase:
             lyrics_corpus_id=corpus_id,
             content_hash=content_hash,
             created_at=datetime.now(),
+            artist=artist,
+            title=title,
         )
 
         # Save corpus
