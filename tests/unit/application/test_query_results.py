@@ -17,34 +17,30 @@ class TestQueryResultsUseCase:
     def test_query_results_not_found(self):
         """Test querying results when run is not found."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "non_existent_run"
-        match_repo.find_by_id.return_value = None
+        uow.match_repository.find_by_id.return_value = None
 
         # Act
         result = use_case.execute(run_id)
 
         # Assert
         assert result is None
-        match_repo.find_by_id.assert_called_once_with(run_id)
+        uow.match_repository.find_by_id.assert_called_once_with(run_id)
 
     def test_query_results_success_exact_match(self):
         """Test querying results successfully with exact match types (returns DTO)."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_123"
 
@@ -74,7 +70,7 @@ class TestQueryResultsUseCase:
             results=[match_result1, match_result2],
         )
 
-        match_repo.find_by_id.return_value = mock_match_run
+        uow.match_repository.find_by_id.return_value = mock_match_run
 
         # Mock: tokens
         token1 = LyricToken(
@@ -105,7 +101,7 @@ class TestQueryResultsUseCase:
             token_index=2,
         )
 
-        token_repo.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2, "token_3": token3}.get(tid)
         )
 
@@ -119,19 +115,17 @@ class TestQueryResultsUseCase:
         assert len(result.items) == 2
 
         # Verify repository calls
-        match_repo.find_by_id.assert_called_once_with(run_id)
-        assert token_repo.get_by_id.call_count == 3  # token_1, token_2, token_3
+        uow.match_repository.find_by_id.assert_called_once_with(run_id)
+        assert uow.lyric_token_repository.get_by_id.call_count == 3  # token_1, token_2, token_3
 
     def test_query_results_success_mora_combination(self):
         """Test querying results successfully with mora combination match type (returns DTO)."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_456"
 
@@ -159,7 +153,7 @@ class TestQueryResultsUseCase:
             results=[match_result],
         )
 
-        match_repo.find_by_id.return_value = mock_match_run
+        uow.match_repository.find_by_id.return_value = mock_match_run
 
         # Mock: tokens
         token_a = LyricToken(
@@ -181,7 +175,7 @@ class TestQueryResultsUseCase:
             token_index=1,
         )
 
-        token_repo.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
             {"token_a": token_a, "token_b": token_b}.get(tid)
         )
 
@@ -196,4 +190,4 @@ class TestQueryResultsUseCase:
         assert len(result.items[0].chosen_lyrics_tokens) == 2
 
         # Verify repository calls - should be called 2 times (deduplicated)
-        assert token_repo.get_by_id.call_count == 2  # token_a and token_b
+        assert uow.lyric_token_repository.get_by_id.call_count == 2  # token_a and token_b

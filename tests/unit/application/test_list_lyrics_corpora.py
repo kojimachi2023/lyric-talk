@@ -16,36 +16,32 @@ class TestListLyricsCorporaUseCase:
     def test_list_empty_corpora(self):
         """Test listing when no corpora exist."""
         # Arrange
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = ListLyricsCorporaUseCase(
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
 
         # Mock: no corpora exist
-        lyrics_repo.list_lyrics_corpora.return_value = []
+        uow.lyrics_repository.list_lyrics_corpora.return_value = []
 
         # Act
         result = use_case.execute(limit=10)
 
         # Assert
         assert result == []
-        lyrics_repo.list_lyrics_corpora.assert_called_once_with(10)
-        token_repo.count_by_lyrics_corpus_id.assert_not_called()
-        token_repo.list_by_lyrics_corpus_id.assert_not_called()
+        uow.lyrics_repository.list_lyrics_corpora.assert_called_once_with(10)
+        uow.lyric_token_repository.count_by_lyrics_corpus_id.assert_not_called()
+        uow.lyric_token_repository.list_by_lyrics_corpus_id.assert_not_called()
 
     def test_list_single_corpus(self):
         """Test listing with a single corpus."""
         # Arrange
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = ListLyricsCorporaUseCase(
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
 
         # Mock data
         corpus = LyricsCorpus(
@@ -55,11 +51,11 @@ class TestListLyricsCorporaUseCase:
             title="Test Song",
             artist="Test Artist",
         )
-        lyrics_repo.list_lyrics_corpora.return_value = [corpus]
+        uow.lyrics_repository.list_lyrics_corpora.return_value = [corpus]
 
         # Mock token data
-        token_repo.count_by_lyrics_corpus_id.return_value = 5
-        token_repo.list_by_lyrics_corpus_id.return_value = [
+        uow.lyric_token_repository.count_by_lyrics_corpus_id.return_value = 5
+        uow.lyric_token_repository.list_by_lyrics_corpus_id.return_value = [
             LyricToken(
                 lyrics_corpus_id="corpus_1",
                 surface="テスト",
@@ -102,20 +98,20 @@ class TestListLyricsCorporaUseCase:
         assert result[0].token_count == 5
         assert result[0].preview_text == "テストの歌詞"
 
-        lyrics_repo.list_lyrics_corpora.assert_called_once_with(10)
-        token_repo.count_by_lyrics_corpus_id.assert_called_once_with("corpus_1")
-        token_repo.list_by_lyrics_corpus_id.assert_called_once_with("corpus_1", limit=5)
+        uow.lyrics_repository.list_lyrics_corpora.assert_called_once_with(10)
+        uow.lyric_token_repository.count_by_lyrics_corpus_id.assert_called_once_with("corpus_1")
+        uow.lyric_token_repository.list_by_lyrics_corpus_id.assert_called_once_with(
+            "corpus_1", limit=5
+        )
 
     def test_list_multiple_corpora(self):
         """Test listing with multiple corpora."""
         # Arrange
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = ListLyricsCorporaUseCase(
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
 
         # Mock data
         corpus1 = LyricsCorpus(
@@ -132,7 +128,7 @@ class TestListLyricsCorporaUseCase:
             title=None,
             artist=None,
         )
-        lyrics_repo.list_lyrics_corpora.return_value = [corpus1, corpus2]
+        uow.lyrics_repository.list_lyrics_corpora.return_value = [corpus1, corpus2]
 
         # Mock token data for corpus1
         def count_side_effect(corpus_id):
@@ -178,8 +174,8 @@ class TestListLyricsCorporaUseCase:
                 ]
             return []
 
-        token_repo.count_by_lyrics_corpus_id.side_effect = count_side_effect
-        token_repo.list_by_lyrics_corpus_id.side_effect = list_side_effect
+        uow.lyric_token_repository.count_by_lyrics_corpus_id.side_effect = count_side_effect
+        uow.lyric_token_repository.list_by_lyrics_corpus_id.side_effect = list_side_effect
 
         # Act
         result = use_case.execute(limit=10)
@@ -205,18 +201,16 @@ class TestListLyricsCorporaUseCase:
     def test_list_respects_limit(self):
         """Test that the limit parameter is passed to repository."""
         # Arrange
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
-        use_case = ListLyricsCorporaUseCase(
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
-        )
+        use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
 
-        lyrics_repo.list_lyrics_corpora.return_value = []
+        uow.lyrics_repository.list_lyrics_corpora.return_value = []
 
         # Act
         use_case.execute(limit=5)
 
         # Assert
-        lyrics_repo.list_lyrics_corpora.assert_called_once_with(5)
+        uow.lyrics_repository.list_lyrics_corpora.assert_called_once_with(5)

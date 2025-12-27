@@ -4,8 +4,7 @@ Application Use Case: List Lyrics Corpora
 """
 
 from src.application.dtos.cli_summaries import LyricsCorpusSummaryDto
-from src.domain.repositories.lyric_token_repository import LyricTokenRepository
-from src.domain.repositories.lyrics_repository import LyricsRepository
+from src.domain.repositories.unit_of_work import UnitOfWork
 
 
 class ListLyricsCorporaUseCase:
@@ -18,18 +17,15 @@ class ListLyricsCorporaUseCase:
 
     def __init__(
         self,
-        lyrics_repository: LyricsRepository,
-        lyric_token_repository: LyricTokenRepository,
+        unit_of_work: UnitOfWork,
     ):
         """
         コンストラクタ
 
         Args:
-            lyrics_repository: 歌詞コーパスリポジトリ
-            lyric_token_repository: 歌詞トークンリポジトリ
+            unit_of_work: Unit of Work
         """
-        self._lyrics_repository = lyrics_repository
-        self._lyric_token_repository = lyric_token_repository
+        self._unit_of_work = unit_of_work
 
     def execute(self, limit: int = 10, max_preview_token: int = 10) -> list[LyricsCorpusSummaryDto]:
         """
@@ -43,18 +39,18 @@ class ListLyricsCorporaUseCase:
             歌詞コーパスサマリーDTOのリスト（新しい順）
         """
         # 最新のコーパス一覧を取得
-        corpora = self._lyrics_repository.list_lyrics_corpora(limit)
+        corpora = self._unit_of_work.lyrics_repository.list_lyrics_corpora(limit)
 
         # 各コーパスのサマリー情報を構築
         summaries: list[LyricsCorpusSummaryDto] = []
         for corpus in corpora:
             # トークン数を取得
-            token_count = self._lyric_token_repository.count_by_lyrics_corpus_id(
+            token_count = self._unit_of_work.lyric_token_repository.count_by_lyrics_corpus_id(
                 corpus.lyrics_corpus_id
             )
 
             # プレビュー用のトークンを取得
-            preview_tokens = self._lyric_token_repository.list_by_lyrics_corpus_id(
+            preview_tokens = self._unit_of_work.lyric_token_repository.list_by_lyrics_corpus_id(
                 corpus.lyrics_corpus_id, limit=max_preview_token
             )
 

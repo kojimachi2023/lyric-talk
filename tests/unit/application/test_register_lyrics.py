@@ -15,20 +15,20 @@ class TestRegisterLyricsUseCase:
         """Test registering new lyrics (corpus doesn't exist)."""
         # Arrange
         nlp_service = Mock()
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
         use_case = RegisterLyricsUseCase(
             nlp_service=nlp_service,
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
+            unit_of_work=uow,
         )
 
         lyrics_text = "テスト\nサンプル"
 
         # Mock: corpus doesn't exist (new registration)
-        lyrics_repo.find_by_content_hash.return_value = None
-        lyrics_repo.save.return_value = "corpus_123"
+        uow.lyrics_repository.find_by_content_hash.return_value = None
+        uow.lyrics_repository.save.return_value = "corpus_123"
 
         # Mock: tokenization
         nlp_service.tokenize.return_value = [
@@ -43,19 +43,19 @@ class TestRegisterLyricsUseCase:
         assert corpus_id == "corpus_123"
 
         # Verify hash check
-        lyrics_repo.find_by_content_hash.assert_called_once()
+        uow.lyrics_repository.find_by_content_hash.assert_called_once()
 
         # Verify tokenization
         nlp_service.tokenize.assert_called_once_with(lyrics_text)
 
         # Verify corpus saved
-        lyrics_repo.save.assert_called_once()
-        saved_corpus = lyrics_repo.save.call_args[0][0]
+        uow.lyrics_repository.save.assert_called_once()
+        saved_corpus = uow.lyrics_repository.save.call_args[0][0]
         assert isinstance(saved_corpus, LyricsCorpus)
 
         # Verify tokens saved
-        token_repo.save_batch.assert_called_once()
-        saved_tokens = token_repo.save_batch.call_args[0][0]
+        uow.lyric_token_repository.save_batch.assert_called_once()
+        saved_tokens = uow.lyric_token_repository.save_batch.call_args[0][0]
         assert len(saved_tokens) == 2
         assert all(isinstance(token, LyricToken) for token in saved_tokens)
 
@@ -63,13 +63,13 @@ class TestRegisterLyricsUseCase:
         """Test registering duplicate lyrics (reuse existing corpus_id)."""
         # Arrange
         nlp_service = Mock()
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
         use_case = RegisterLyricsUseCase(
             nlp_service=nlp_service,
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
+            unit_of_work=uow,
         )
 
         lyrics_text = "重複テスト"
@@ -82,7 +82,7 @@ class TestRegisterLyricsUseCase:
             content_hash="hash_abc",
             created_at=datetime.now(),
         )
-        lyrics_repo.find_by_content_hash.return_value = existing_corpus
+        uow.lyrics_repository.find_by_content_hash.return_value = existing_corpus
 
         # Act
         corpus_id = use_case.execute(lyrics_text)
@@ -91,31 +91,31 @@ class TestRegisterLyricsUseCase:
         assert corpus_id == "existing_corpus_456"
 
         # Verify hash check
-        lyrics_repo.find_by_content_hash.assert_called_once()
+        uow.lyrics_repository.find_by_content_hash.assert_called_once()
 
         # Verify NO tokenization or saving
         nlp_service.tokenize.assert_not_called()
-        lyrics_repo.save.assert_not_called()
-        token_repo.save_batch.assert_not_called()
+        uow.lyrics_repository.save.assert_not_called()
+        uow.lyric_token_repository.save_batch.assert_not_called()
 
     def test_register_empty_lyrics(self):
         """Test registering empty lyrics (edge case)."""
         # Arrange
         nlp_service = Mock()
-        lyrics_repo = Mock()
-        token_repo = Mock()
+        uow = Mock()
+        uow.lyrics_repository = Mock()
+        uow.lyric_token_repository = Mock()
 
         use_case = RegisterLyricsUseCase(
             nlp_service=nlp_service,
-            lyrics_repository=lyrics_repo,
-            lyric_token_repository=token_repo,
+            unit_of_work=uow,
         )
 
         lyrics_text = ""
 
         # Mock
-        lyrics_repo.find_by_content_hash.return_value = None
-        lyrics_repo.save.return_value = "corpus_empty"
+        uow.lyrics_repository.find_by_content_hash.return_value = None
+        uow.lyrics_repository.save.return_value = "corpus_empty"
         nlp_service.tokenize.return_value = []
 
         # Act
@@ -123,4 +123,4 @@ class TestRegisterLyricsUseCase:
 
         # Assert
         assert corpus_id == "corpus_empty"
-        token_repo.save_batch.assert_called_once_with([])
+        uow.lyric_token_repository.save_batch.assert_called_once_with([])

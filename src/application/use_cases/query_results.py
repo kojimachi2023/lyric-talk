@@ -17,8 +17,7 @@ from src.application.dtos.query_results_dto import (
 from src.domain.models.lyric_token import LyricToken
 from src.domain.models.match_result import MatchResult, MatchType
 from src.domain.models.match_run import MatchRun
-from src.domain.repositories.lyric_token_repository import LyricTokenRepository
-from src.domain.repositories.match_repository import MatchRepository
+from src.domain.repositories.unit_of_work import UnitOfWork
 
 
 class QueryResultsUseCase:
@@ -26,11 +25,9 @@ class QueryResultsUseCase:
 
     def __init__(
         self,
-        match_repository: MatchRepository,
-        lyric_token_repository: LyricTokenRepository,
+        unit_of_work: UnitOfWork,
     ):
-        self.match_repository = match_repository
-        self.lyric_token_repository = lyric_token_repository
+        self.unit_of_work = unit_of_work
 
     def execute(self, run_id: str) -> Optional[QueryResultsDto]:
         """Query results for a match run.
@@ -42,7 +39,7 @@ class QueryResultsUseCase:
             QueryResultsDto containing match_run and resolved results, or None if not found
         """
         # Get match run (aggregate) with results
-        match_run: Optional[MatchRun] = self.match_repository.find_by_id(run_id)
+        match_run: Optional[MatchRun] = self.unit_of_work.match_repository.find_by_id(run_id)
 
         if match_run is None:
             return None
@@ -58,7 +55,12 @@ class QueryResultsUseCase:
         # Process each match result into QueryMatchItemDto
         items: List[QueryMatchItemDto] = []
         reconstruction_steps: List[ReconstructionStepDto] = []
-        stats = {"exact_surface": 0, "exact_reading": 0, "mora_combination": 0, "no_match": 0}
+        stats = {
+            "exact_surface": 0,
+            "exact_reading": 0,
+            "mora_combination": 0,
+            "no_match": 0,
+        }
 
         for match_result in match_run.results:
             # Resolve tokens
@@ -83,9 +85,7 @@ class QueryResultsUseCase:
             items.append(item)
 
             # Build reconstruction step
-            chosen_surface, chosen_reading = self._build_chosen_text(
-                match_result, resolved_tokens
-            )
+            chosen_surface, chosen_reading = self._build_chosen_text(match_result, resolved_tokens)
             reconstruction_step = ReconstructionStepDto(
                 input=input_dto,
                 match_type=match_result.match_type,
@@ -107,9 +107,7 @@ class QueryResultsUseCase:
                 stats["no_match"] += 1
 
         # Build summary reconstructed text
-        reconstructed_surface = "".join(
-            step.chosen_surface or "" for step in reconstruction_steps
-        )
+        reconstructed_surface = "".join(step.chosen_surface or "" for step in reconstruction_steps)
         reconstructed_reading = "".join(step.chosen_reading for step in reconstruction_steps)
 
         summary = QuerySummaryDto(
@@ -144,7 +142,7 @@ class QueryResultsUseCase:
         if match_result.match_type in (MatchType.EXACT_SURFACE, MatchType.EXACT_READING):
             # Use matched_token_ids for exact matches
             for token_id in match_result.matched_token_ids:
-                token = self.lyric_token_repository.get_by_id(token_id)
+                token = self.unit_of_work.lyric_token_repository.get_by_id(token_id)
                 if token:
                     resolved_tokens.append(token)
 
@@ -156,7 +154,7 @@ class QueryResultsUseCase:
                     token_id = mora_detail.source_token_id
                     if token_id not in seen_token_ids:
                         seen_token_ids.add(token_id)
-                        token = self.lyric_token_repository.get_by_id(token_id)
+                        token = self.unit_of_work.lyric_token_repository.get_by_id(token_id)
                         if token:
                             resolved_tokens.append(token)
 
@@ -215,4 +213,3 @@ class QueryResultsUseCase:
 
         # No match or other cases
         return None, ""
-

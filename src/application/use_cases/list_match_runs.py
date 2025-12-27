@@ -4,7 +4,7 @@ Application Use Case: List Match Runs
 """
 
 from src.application.dtos.cli_summaries import MatchRunSummaryDto
-from src.domain.repositories.match_repository import MatchRepository
+from src.domain.repositories.unit_of_work import UnitOfWork
 
 
 class ListMatchRunsUseCase:
@@ -15,14 +15,14 @@ class ListMatchRunsUseCase:
     CLI の対話選択機能で使用するための概要情報を提供。
     """
 
-    def __init__(self, match_repository: MatchRepository):
+    def __init__(self, unit_of_work: UnitOfWork):
         """
         コンストラクタ
 
         Args:
-            match_repository: マッチングリポジトリ
+            unit_of_work: Unit of Work
         """
-        self._match_repository = match_repository
+        self._unit_of_work = unit_of_work
 
     def execute(self, limit: int = 10) -> list[MatchRunSummaryDto]:
         """
@@ -35,7 +35,7 @@ class ListMatchRunsUseCase:
             マッチング実行サマリーDTOのリスト（新しい順）
         """
         # 最新のマッチング実行履歴を取得
-        runs = self._match_repository.list_match_runs(limit)
+        runs = self._unit_of_work.match_repository.list_match_runs(limit)
 
         # 各実行のサマリー情報を構築
         summaries: list[MatchRunSummaryDto] = []

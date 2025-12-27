@@ -17,32 +17,28 @@ class TestQueryResultsDtoRefactor:
     def test_execute_returns_none_when_run_not_found(self):
         """Test that execute returns None when run_id is not found."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "nonexistent_run"
-        match_repo.find_by_id.return_value = None
+        uow.match_repository.find_by_id.return_value = None
 
         # Act
         result = use_case.execute(run_id)
 
         # Assert
         assert result is None
-        match_repo.find_by_id.assert_called_once_with(run_id)
+        uow.match_repository.find_by_id.assert_called_once_with(run_id)
 
     def test_execute_returns_dto_for_exact_surface_match(self):
         """Test that execute returns QueryResultsDto for EXACT_SURFACE match type."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_exact_surface"
         corpus_id = "corpus_1"
@@ -67,7 +63,7 @@ class TestQueryResultsDtoRefactor:
             results=[match_result],
         )
 
-        match_repo.find_by_id.return_value = match_run
+        uow.match_repository.find_by_id.return_value = match_run
 
         # Mock tokens
         token1 = LyricToken(
@@ -91,7 +87,7 @@ class TestQueryResultsDtoRefactor:
             pos="助詞",
         )
 
-        token_repo.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2}.get(tid)
         )
 
@@ -114,12 +110,10 @@ class TestQueryResultsDtoRefactor:
     def test_execute_returns_dto_for_exact_reading_match(self):
         """Test that execute returns QueryResultsDto for EXACT_READING match type."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_exact_reading"
         corpus_id = "corpus_1"
@@ -144,7 +138,7 @@ class TestQueryResultsDtoRefactor:
             results=[match_result],
         )
 
-        match_repo.find_by_id.return_value = match_run
+        uow.match_repository.find_by_id.return_value = match_run
 
         # Mock token
         token3 = LyricToken(
@@ -158,7 +152,7 @@ class TestQueryResultsDtoRefactor:
             pos="感動詞",
         )
 
-        token_repo.get_by_id.return_value = token3
+        uow.lyric_token_repository.get_by_id.return_value = token3
 
         # Act
         result = use_case.execute(run_id)
@@ -174,12 +168,10 @@ class TestQueryResultsDtoRefactor:
     def test_execute_returns_dto_for_mora_combination_match(self):
         """Test that execute returns QueryResultsDto for MORA_COMBINATION with mora trace."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_mora"
         corpus_id = "corpus_1"
@@ -207,7 +199,7 @@ class TestQueryResultsDtoRefactor:
             results=[match_result],
         )
 
-        match_repo.find_by_id.return_value = match_run
+        uow.match_repository.find_by_id.return_value = match_run
 
         # Mock tokens
         token_a = LyricToken(
@@ -231,7 +223,7 @@ class TestQueryResultsDtoRefactor:
             pos="名詞",
         )
 
-        token_repo.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
             {"token_a": token_a, "token_b": token_b}.get(tid)
         )
 
@@ -250,12 +242,10 @@ class TestQueryResultsDtoRefactor:
     def test_execute_handles_multiple_results_with_mixed_match_types(self):
         """Test that execute handles multiple results with different match types."""
         # Arrange
-        match_repo = Mock()
-        token_repo = Mock()
-        use_case = QueryResultsUseCase(
-            match_repository=match_repo,
-            lyric_token_repository=token_repo,
-        )
+        uow = Mock()
+        uow.match_repository = Mock()
+        uow.lyric_token_repository = Mock()
+        use_case = QueryResultsUseCase(unit_of_work=uow)
 
         run_id = "run_mixed"
         corpus_id = "corpus_1"
@@ -291,7 +281,7 @@ class TestQueryResultsDtoRefactor:
             results=[match_result1, match_result2],
         )
 
-        match_repo.find_by_id.return_value = match_run
+        uow.match_repository.find_by_id.return_value = match_run
 
         # Mock tokens
         token1 = LyricToken(
@@ -325,7 +315,7 @@ class TestQueryResultsDtoRefactor:
             pos="名詞",
         )
 
-        token_repo.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2, "token_3": token3}.get(tid)
         )
 
