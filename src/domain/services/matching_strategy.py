@@ -138,6 +138,7 @@ class MatchingStrategy:
 
             # 最初に見つかったトークンを使用
             token = tokens[0]
+
             # トークン内でのモーラ位置を取得
             mora_index = token.moras.index(mora) if mora in token.moras else 0
             result.append(

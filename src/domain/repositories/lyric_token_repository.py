@@ -136,21 +136,6 @@ class LyricTokenRepository(ABC):
         """
         pass
 
-    def get_by_id(self, token_id: str) -> Optional[LyricToken]:
-        """
-        トークンIDで歌詞トークンを取得する（エイリアス）
-
-        find_by_token_id() のエイリアスメソッド。
-        UseCaseから呼ばれる一般的な命名規則に合わせている。
-
-        Args:
-            token_id: トークンID
-
-        Returns:
-            マッチした歌詞トークン、見つからない場合はNone
-        """
-        return self.find_by_token_id(token_id)
-
     @abstractmethod
     def find_by_token_ids(self, token_ids: List[str]) -> List[LyricToken]:
         """
