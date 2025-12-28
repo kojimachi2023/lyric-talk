@@ -21,6 +21,10 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "polars>=1.36.1",
     "polars-ds>=0.10.4",
+    "matplotlib>=3.10.8",
+    "numpy>=2.3.5",
+    "lyricsgenius>=3.7.5",
+    "spotipy>=2.25.2",
 ]
 
 [project.scripts]
