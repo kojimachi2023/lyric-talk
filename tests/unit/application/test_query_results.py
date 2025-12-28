@@ -101,9 +101,10 @@ class TestQueryResultsUseCase:
             token_index=2,
         )
 
-        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
-            {"token_1": token1, "token_2": token2, "token_3": token3}.get(tid)
-        )
+        token_map = {"token_1": token1, "token_2": token2, "token_3": token3}
+        uow.lyric_token_repository.find_by_token_ids.side_effect = lambda tids: [
+            token_map[tid] for tid in tids if tid in token_map
+        ]
 
         # Act
         result = use_case.execute(run_id)
@@ -116,7 +117,8 @@ class TestQueryResultsUseCase:
 
         # Verify repository calls
         uow.match_repository.find_by_id.assert_called_once_with(run_id)
-        assert uow.lyric_token_repository.get_by_id.call_count == 3  # token_1, token_2, token_3
+        # バッチ呼び出しは2回（match_result1とmatch_result2に対して各1回）
+        assert uow.lyric_token_repository.find_by_token_ids.call_count == 2
 
     def test_query_results_success_mora_combination(self):
         """Test querying results successfully with mora combination match type (returns DTO)."""
@@ -175,9 +177,10 @@ class TestQueryResultsUseCase:
             token_index=1,
         )
 
-        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
-            {"token_a": token_a, "token_b": token_b}.get(tid)
-        )
+        token_map = {"token_a": token_a, "token_b": token_b}
+        uow.lyric_token_repository.find_by_token_ids.side_effect = lambda tids: [
+            token_map[tid] for tid in tids if tid in token_map
+        ]
 
         # Act
         result = use_case.execute(run_id)
@@ -189,5 +192,5 @@ class TestQueryResultsUseCase:
         # Should only resolve 2 unique tokens (token_a appears twice but deduplicated)
         assert len(result.items[0].chosen_lyrics_tokens) == 2
 
-        # Verify repository calls - should be called 2 times (deduplicated)
-        assert uow.lyric_token_repository.get_by_id.call_count == 2  # token_a and token_b
+        # Verify repository calls - バッチ呼び出しは1回（重複排除済みのリストで）
+        assert uow.lyric_token_repository.find_by_token_ids.call_count == 1

@@ -5,22 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "run lyric-talk",
+      "name": "run eval",
       "type": "debugpy",
       "request": "launch",
       "console": "integratedTerminal",
       "python": "${workspaceFolder}/.venv/bin/python",
-      "module": "src.main",
+      "module": "eval.analyze_ita_corpus",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/eval"
       },
-      "args": [
-        "--lyrics",
-        "test_lyrics.txt",
-        "--text",
-        "なるほど。あそこにベンツが停まってますね。もしあなたが煙草を吸わなければ、あれくらい買えたんですよ。"
-      ],
+      "args": [],
       "justMyCode": true
     }
   ]

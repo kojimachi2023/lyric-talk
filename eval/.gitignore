@@ -1,0 +1,3 @@
+lyrics/**/*.json
+results/**/*.json
+*.txt

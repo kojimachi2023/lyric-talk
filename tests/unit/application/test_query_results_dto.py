@@ -87,7 +87,7 @@ class TestQueryResultsDtoRefactor:
             pos="助詞",
         )
 
-        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2}.get(tid)
         )
 
@@ -152,7 +152,7 @@ class TestQueryResultsDtoRefactor:
             pos="感動詞",
         )
 
-        uow.lyric_token_repository.get_by_id.return_value = token3
+        uow.lyric_token_repository.find_by_token_id.return_value = token3
 
         # Act
         result = use_case.execute(run_id)
@@ -223,7 +223,7 @@ class TestQueryResultsDtoRefactor:
             pos="名詞",
         )
 
-        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
             {"token_a": token_a, "token_b": token_b}.get(tid)
         )
 
@@ -315,7 +315,7 @@ class TestQueryResultsDtoRefactor:
             pos="名詞",
         )
 
-        uow.lyric_token_repository.get_by_id.side_effect = lambda tid: (
+        uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2, "token_3": token3}.get(tid)
         )
 
