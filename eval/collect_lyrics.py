@@ -1,7 +1,7 @@
 """
 歌詞コーパス収集パイプライン
 
-Spotify APIを使用して日本のヒット曲を検索し、
+Billboard Japan のチャート情報をスクレイピングして日本のヒット曲を取得し、
 LyricsGeniusを使用して歌詞を取得・保存します。
 """
 
@@ -14,9 +14,9 @@ from datetime import datetime
 from pathlib import Path
 
 import lyricsgenius
-import spotipy
+import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyClientCredentials
 
 # .envファイルを読み込み
 ENV_PATH = Path(__file__).parent / ".env"
@@ -29,41 +29,31 @@ class TrackInfo:
 
     artist: str
     title: str
-    album: str
-    release_date: str
-    spotify_id: str
+    album: str | None
+    release_date: str | None
+    spotify_id: str | None
     year: int
 
 
-class SpotifyJapanHitsFetcher:
-    """Spotify APIを使用して日本のヒット曲を取得するクラス"""
+class BillboardJapanFetcher:
+    """Billboard Japan のチャートからヒット曲を取得するクラス"""
 
-    # 日本の人気プレイリストID (Spotify公式の日本TOP50など)
-    JAPAN_TOP_PLAYLISTS = {
-        "japan_top_50": "37i9dQZEVXbKXQ4mDTEBXq",  # Top 50 - Japan
-    }
+    BASE_URL = "https://www.billboard-japan.com/charts/detail"
+    HOT_100_YEAR_TYPE = "hot100_year"
 
     def __init__(self):
-        client_id = os.getenv("EVAL_SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("EVAL_SPOTIFY_CLIENT_SECRET")
-        self.market = os.getenv("EVAL_SPOTIFY_MARKET", "JP")
+        """Billboard Japan フェッチャーを初期化"""
+        self.session = requests.Session()
+        self.session.headers.update(
+            {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        )
 
-        if not client_id or not client_secret:
-            raise ValueError(
-                "Spotify credentials not found. "
-                "Please set EVAL_SPOTIFY_CLIENT_ID and EVAL_SPOTIFY_CLIENT_SECRET in .env"
-            )
-
-        auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-        self.sp = spotipy.Spotify(auth_manager=auth_manager)
-
-    def search_japanese_hits_by_year(self, year: int, limit: int = 50) -> list[TrackInfo]:
+    def fetch_year_chart(self, year: int) -> list[TrackInfo]:
         """
-        指定年の日本語ヒット曲を検索
+        指定年の年間チャートを取得
 
         Args:
-            year: 検索対象の年
-            limit: 取得する曲数の上限
+            year: 取得対象の年
 
         Returns:
             TrackInfo のリスト
@@ -71,95 +61,98 @@ class SpotifyJapanHitsFetcher:
         tracks: list[TrackInfo] = []
         seen_tracks: set[str] = set()  # 重複排除用
 
-        # 検索クエリ: 日本語の曲を年で絞り込み
-        queries = [
-            f"year:{year} tag:jpop",
-            f"year:{year} tag:j-pop",
-            f"year:{year} genre:j-pop",
-            f"year:{year} genre:japanese",
-        ]
-
-        for query in queries:
-            if len(tracks) >= limit:
-                break
-
-            try:
-                results = self.sp.search(
-                    q=query,
-                    type="track",
-                    market=self.market,
-                    limit=min(50, limit - len(tracks)),
-                )
-
-                for item in results["tracks"]["items"]:
-                    track_key = f"{item['artists'][0]['name']}:{item['name']}"
-
-                    if track_key in seen_tracks:
-                        continue
-
-                    seen_tracks.add(track_key)
-
-                    # リリース日から年を抽出
-                    release_date = item["album"]["release_date"]
-                    release_year = int(release_date[:4]) if release_date else year
-
-                    track_info = TrackInfo(
-                        artist=item["artists"][0]["name"],
-                        title=item["name"],
-                        album=item["album"]["name"],
-                        release_date=release_date,
-                        spotify_id=item["id"],
-                        year=release_year,
-                    )
-                    tracks.append(track_info)
-
-                    if len(tracks) >= limit:
-                        break
-
-                # API レート制限対策
-                time.sleep(0.1)
-
-            except Exception as e:
-                print(f"Error searching for {query}: {e}")
-                continue
-
-        return tracks
-
-    def get_playlist_tracks(self, playlist_id: str) -> list[TrackInfo]:
-        """
-        プレイリストから曲情報を取得
-
-        Args:
-            playlist_id: SpotifyプレイリストID
-
-        Returns:
-            TrackInfo のリスト
-        """
-        tracks: list[TrackInfo] = []
-
         try:
-            results = self.sp.playlist_tracks(playlist_id, market=self.market)
+            # URLを構築
+            url = f"{self.BASE_URL}?a={self.HOT_100_YEAR_TYPE}&year={year}"
+            print(f"Fetching from: {url}")
 
-            for item in results["items"]:
-                if item["track"] is None:
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+
+            # HTMLをパース
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # チャート表から行を抽出
+            table = soup.find("table")
+            if not table:
+                print(f"Warning: No table found on chart for year {year}")
+                return tracks
+
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = row.find_all("td")
+                if len(cells) < 2:
                     continue
 
-                track = item["track"]
-                release_date = track["album"]["release_date"]
-                release_year = int(release_date[:4]) if release_date else 0
+                # 最初のセルはランキング番号
+                rank_cell = cells[0].get_text(strip=True)
+                if not rank_cell.isdigit():
+                    continue
 
+                rank = int(rank_cell)
+
+                # 2番目のセルが曲情報
+                info_cell = cells[1]
+
+                # div.name_detail を探す（本来の構造）
+                name_detail = info_cell.find("div", class_="name_detail")
+
+                if name_detail:
+                    # 新しいHTMLレイアウト（p タグで構造化）
+                    title_p = name_detail.find("p", class_="musuc_title")
+                    artist_p = name_detail.find("p", class_="artist_name")
+
+                    if title_p and artist_p:
+                        title = title_p.get_text(strip=True)
+                        artist = artist_p.get_text(strip=True)
+                    else:
+                        continue
+                else:
+                    # フォールバック：古いHTMLレイアウトまたは異なる構造
+                    # テキストから解析
+                    full_text = info_cell.get_text(strip=True)
+                    a_tags = info_cell.find_all("a")
+
+                    if len(a_tags) >= 2:
+                        artist = a_tags[-1].get_text(strip=True)
+                        # 曲名 = 全テキスト - ランク番号 - アーティスト名 - 「詳細・購入はこちら」
+                        title = (
+                            full_text.replace(rank_cell, "")
+                            .replace(artist, "")
+                            .replace("詳細・購入はこちら", "")
+                            .strip()
+                        )
+                    else:
+                        continue
+
+                if not title or not artist:
+                    continue
+
+                # 重複チェック
+                track_key = f"{artist}:{title}"
+                if track_key in seen_tracks:
+                    continue
+                seen_tracks.add(track_key)
+
+                # TrackInfo を作成
                 track_info = TrackInfo(
-                    artist=track["artists"][0]["name"],
-                    title=track["name"],
-                    album=track["album"]["name"],
-                    release_date=release_date,
-                    spotify_id=track["id"],
-                    year=release_year,
+                    artist=artist,
+                    title=title,
+                    album=None,
+                    release_date=None,
+                    spotify_id=None,
+                    year=year,
                 )
                 tracks.append(track_info)
 
+            print(f"Found {len(tracks)} unique tracks for year {year}")
+            time.sleep(1)  # サーバー負荷対策
+
         except Exception as e:
-            print(f"Error fetching playlist {playlist_id}: {e}")
+            print(f"Error fetching chart for year {year}: {e}")
+            import traceback
+
+            traceback.print_exc()
 
         return tracks
 
@@ -168,45 +161,26 @@ class SpotifyJapanHitsFetcher:
     ) -> dict[int, list[TrackInfo]]:
         """
         過去N年間の各年のヒット曲を取得
-        Spotifyの公式TOP50プレイリストを使用します
 
         Args:
-            n_years: 取得する年数 (注: プレイリストは現在のTOP曲を返すため、年数パラメータは参考値)
-            tracks_per_year: 各年の取得曲数
+            n_years: 取得する年数
+            tracks_per_year: 各年の取得曲数（制限）
 
         Returns:
             年をキー、TrackInfoリストを値とする辞書
         """
         hits_by_year: dict[int, list[TrackInfo]] = {}
 
-        # Spotify公式のJapan TOP 50プレイリストから現在のヒット曲を取得
-        playlist_id = self.JAPAN_TOP_PLAYLISTS["japan_top_50"]
-        print("Fetching from Spotify Japan TOP 50 playlist...")
-        tracks = self.get_playlist_tracks(playlist_id)
-
-        if tracks:
-            # プレイリストから得た曲を年ごとにグループ化
-            current_year = datetime.now().year
-            for year in range(current_year - n_years + 1, current_year + 1):
-                year_tracks = [t for t in tracks if t.year == year]
-                hits_by_year[year] = year_tracks[:tracks_per_year]
-                if year_tracks:
-                    print(f"  {year}: Found {len(year_tracks)} tracks")
-
-        # 結果が不足している場合は、補足データとして検索を使用
         current_year = datetime.now().year
         for year in range(current_year - n_years + 1, current_year + 1):
-            if year not in hits_by_year or len(hits_by_year[year]) < tracks_per_year:
-                needed = tracks_per_year - len(hits_by_year.get(year, []))
-                supplement_tracks = self.search_japanese_hits_by_year(year, limit=needed)
-                if year not in hits_by_year:
-                    hits_by_year[year] = supplement_tracks
-                else:
-                    hits_by_year[year].extend(supplement_tracks)
-                if supplement_tracks:
-                    msg = f"  {year}: Supplemented with {len(supplement_tracks)} tracks from search"
-                    print(msg)
-            time.sleep(0.5)  # API レート制限対策
+            print(f"Fetching year {year}...")
+            tracks = self.fetch_year_chart(year)
+
+            # 指定数に制限
+            if tracks:
+                hits_by_year[year] = tracks[:tracks_per_year]
+            else:
+                hits_by_year[year] = []
 
         return hits_by_year
 
@@ -287,11 +261,16 @@ class LyricsCollector:
         payload = {
             "artist": track.artist,
             "title": track.title,
-            "album": track.album,
-            "release_date": track.release_date,
-            "spotify_id": track.spotify_id,
             "lyrics": lyrics,
         }
+
+        # オプショナルなフィールドをペイロードに追加
+        if track.album:
+            payload["album"] = track.album
+        if track.release_date:
+            payload["release_date"] = track.release_date
+        if track.spotify_id:
+            payload["spotify_id"] = track.spotify_id
 
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -309,7 +288,7 @@ class LyricsCollector:
             delay: API呼び出し間の待機時間（秒）
 
         Returns:
-            Spotify ID をキー、保存先パスを値とする辞書
+            曲情報キー (artist_title) を値、保存先パスを値とする辞書
         """
         saved_files: dict[str, Path] = {}
 
@@ -320,7 +299,9 @@ class LyricsCollector:
 
             if lyrics:
                 filepath = self.save_lyrics(track, lyrics)
-                saved_files[track.spotify_id] = filepath
+                # Spotify IDではなく、artist_titleをキーにする
+                track_key = f"{track.artist}_{track.title}"
+                saved_files[track_key] = filepath
                 print(f"    ✓ Saved to {filepath.name}")
             else:
                 print("    ✗ Lyrics not found")
@@ -334,17 +315,17 @@ class LyricsCollector:
 def main():
     """メイン処理"""
     print("=" * 60)
-    print("歌詞コーパス収集パイプライン")
+    print("歌詞コーパス収集パイプライン (Billboard Japan版)")
     print("=" * 60)
 
     # 設定
     N_YEARS = 3  # 過去何年分を取得するか
     TRACKS_PER_YEAR = 20  # 各年の取得曲数
 
-    # 1. Spotify から日本のヒット曲を取得
-    print("\n[Step 1] Fetching Japanese hits from Spotify...")
-    spotify_fetcher = SpotifyJapanHitsFetcher()
-    hits_by_year = spotify_fetcher.fetch_hits_last_n_years(
+    # 1. Billboard Japan から日本のヒット曲を取得
+    print("\n[Step 1] Fetching Japanese hits from Billboard Japan...")
+    billboard_fetcher = BillboardJapanFetcher()
+    hits_by_year = billboard_fetcher.fetch_hits_last_n_years(
         n_years=N_YEARS, tracks_per_year=TRACKS_PER_YEAR
     )
 
@@ -376,7 +357,10 @@ def main():
     print("\nBy year:")
     for year in sorted(hits_by_year.keys()):
         year_tracks = hits_by_year[year]
-        year_saved = sum(1 for t in year_tracks if t.spotify_id in all_saved_files)
+        # 曲情報をキーとしてカウント（Spotify IDがないため）
+        year_saved = sum(
+            1 for t in year_tracks if f"{t.artist}_{t.title}" in str(list(all_saved_files.values()))
+        )
         print(f"  {year}: {year_saved}/{len(year_tracks)} lyrics saved")
 
 

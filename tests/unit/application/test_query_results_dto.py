@@ -87,9 +87,7 @@ class TestQueryResultsDtoRefactor:
             pos="助詞",
         )
 
-        uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
-            {"token_1": token1, "token_2": token2}.get(tid)
-        )
+        uow.lyric_token_repository.find_by_token_ids.return_value = [token1, token2]
 
         # Act
         result = use_case.execute(run_id)
@@ -152,7 +150,7 @@ class TestQueryResultsDtoRefactor:
             pos="感動詞",
         )
 
-        uow.lyric_token_repository.find_by_token_id.return_value = token3
+        uow.lyric_token_repository.find_by_token_ids.return_value = [token3]
 
         # Act
         result = use_case.execute(run_id)
@@ -223,9 +221,7 @@ class TestQueryResultsDtoRefactor:
             pos="名詞",
         )
 
-        uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
-            {"token_a": token_a, "token_b": token_b}.get(tid)
-        )
+        uow.lyric_token_repository.find_by_token_ids.return_value = [token_a, token_b]
 
         # Act
         result = use_case.execute(run_id)
@@ -318,6 +314,16 @@ class TestQueryResultsDtoRefactor:
         uow.lyric_token_repository.find_by_token_id.side_effect = lambda tid: (
             {"token_1": token1, "token_2": token2, "token_3": token3}.get(tid)
         )
+
+        # Mock find_by_token_ids for both match results
+        def mock_find_by_token_ids(token_ids):
+            if token_ids == ["token_1"]:
+                return [token1]
+            elif set(token_ids) == {"token_2", "token_3"}:
+                return [token2, token3]
+            return []
+
+        uow.lyric_token_repository.find_by_token_ids.side_effect = mock_find_by_token_ids
 
         # Act
         result = use_case.execute(run_id)

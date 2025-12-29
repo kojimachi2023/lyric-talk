@@ -13,16 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.application.use_cases.register_lyrics import RegisterLyricsUseCase
-from src.domain.repositories.lyric_token_repository import LyricTokenRepository
-from src.domain.repositories.lyrics_repository import LyricsRepository
 from src.domain.services.nlp_service import NlpService
 from src.infrastructure.config.settings import Settings
-from src.infrastructure.database.duckdb_lyric_token_repository import (
-    DuckDBLyricTokenRepository,
-)
-from src.infrastructure.database.duckdb_lyrics_repository import (
-    DuckDBLyricsRepository,
-)
+from src.infrastructure.database.duckdb_unit_of_work import DuckDBUnitOfWork
 from src.infrastructure.database.schema import initialize_database
 from src.infrastructure.nlp.spacy_nlp_service import SpacyNlpService
 
@@ -41,19 +34,8 @@ class LyricsRegistrator:
         """
         self.settings = settings
 
-        # Initialize dependencies
+        # Initialize NLP service once (outside UoW)
         self.nlp_service: NlpService = SpacyNlpService(model_name=settings.nlp_model)
-        self.lyrics_repository: LyricsRepository = DuckDBLyricsRepository(db_path=settings.db_path)
-        self.lyric_token_repository: LyricTokenRepository = DuckDBLyricTokenRepository(
-            db_path=settings.db_path
-        )
-
-        # Initialize use case
-        self.use_case = RegisterLyricsUseCase(
-            nlp_service=self.nlp_service,
-            lyrics_repository=self.lyrics_repository,
-            lyric_token_repository=self.lyric_token_repository,
-        )
 
     def register_lyrics_from_json(self, json_path: Path) -> str | None:
         """
@@ -77,9 +59,15 @@ class LyricsRegistrator:
                 print(f"⚠️  スキップ: {json_path.name} (歌詞が空)")
                 return None
 
-            # Register to DB
-            corpus_id = self.use_case.execute(lyrics_text, artist=artist, title=title)
-            return corpus_id
+            # Register to DB with UoW (each file in separate transaction)
+            with DuckDBUnitOfWork(self.settings.db_path) as uow:
+                use_case = RegisterLyricsUseCase(
+                    nlp_service=self.nlp_service,
+                    unit_of_work=uow,
+                )
+                corpus_id = use_case.execute(lyrics_text, artist=artist, title=title)
+                uow.commit()
+                return corpus_id
 
         except json.JSONDecodeError as e:
             print(f"❌ JSON解析エラー: {json_path.name} - {e}")
