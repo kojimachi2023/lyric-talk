@@ -89,20 +89,3 @@ class MatchRepository(ABC):
             マッチング実行のリスト（新しい順、results含む）
         """
         pass
-
-    # エイリアスメソッド（後方互換性のため）
-    def save_run(self, match_run: MatchRun) -> str:
-        """save()のエイリアス（後方互換性）"""
-        return self.save(match_run)
-
-    def find_run_by_id(self, run_id: str) -> Optional[MatchRun]:
-        """find_by_id()のエイリアス（後方互換性）"""
-        return self.find_by_id(run_id)
-
-    def find_runs_by_lyrics_corpus_id(self, lyrics_corpus_id: str) -> List[MatchRun]:
-        """find_by_lyrics_corpus_id()のエイリアス（後方互換性）"""
-        return self.find_by_lyrics_corpus_id(lyrics_corpus_id)
-
-    def delete_run(self, run_id: str) -> None:
-        """delete()のエイリアス（後方互換性）"""
-        return self.delete(run_id)

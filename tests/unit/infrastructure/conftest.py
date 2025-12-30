@@ -8,9 +8,7 @@ from typing import Generator
 import pytest
 
 from src.domain.models.lyrics_corpus import LyricsCorpus
-from src.infrastructure.database.duckdb_lyrics_repository import (
-    DuckDBLyricsRepository,
-)
+from src.infrastructure.database.duckdb_unit_of_work import DuckDBUnitOfWork
 from src.infrastructure.database.schema import initialize_database
 
 
@@ -29,21 +27,46 @@ def temp_db() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def temp_db_with_corpus(temp_db: Path) -> tuple[Path, str]:
-    """Create a temporary database with a test corpus.
+def unit_of_work(temp_db: Path) -> Generator[DuckDBUnitOfWork, None, None]:
+    """Create a Unit of Work for testing.
 
     Args:
         temp_db: Path to temporary database
 
-    Returns:
-        Tuple of (db_path, corpus_id)
+    Yields:
+        DuckDBUnitOfWork instance (already entered context)
     """
-    lyrics_repo = DuckDBLyricsRepository(str(temp_db))
-    corpus = LyricsCorpus(
-        lyrics_corpus_id="corpus-001",
-        content_hash="test-hash",
-        title="Test Corpus",
-        created_at=datetime.now(),
-    )
-    lyrics_repo.save(corpus)
-    return temp_db, corpus.lyrics_corpus_id
+    uow = DuckDBUnitOfWork(str(temp_db))
+    with uow:
+        yield uow
+        uow.commit()
+
+
+@pytest.fixture
+def unit_of_work_with_corpus(
+    temp_db: Path,
+) -> Generator[tuple[DuckDBUnitOfWork, str], None, None]:
+    """Create a Unit of Work with a test corpus.
+
+    Args:
+        temp_db: Path to temporary database
+
+    Yields:
+        Tuple of (UnitOfWork, corpus_id)
+    """
+    uow = DuckDBUnitOfWork(str(temp_db))
+    with uow:
+        corpus = LyricsCorpus(
+            lyrics_corpus_id="corpus-001",
+            content_hash="test-hash",
+            title="Test Corpus",
+            created_at=datetime.now(),
+        )
+        uow.lyrics_repository.save(corpus)
+        uow.commit()
+
+    # Start a new UoW for the test
+    uow = DuckDBUnitOfWork(str(temp_db))
+    with uow:
+        yield uow, "corpus-001"
+        uow.commit()

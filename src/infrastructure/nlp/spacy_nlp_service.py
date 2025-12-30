@@ -21,7 +21,16 @@ class SpacyNlpService(NlpService):
         Args:
             model_name: SpaCy model name (default: ja_ginza)
         """
-        self.nlp = spacy.load(model_name)
+        self.nlp = spacy.load(
+            model_name,
+            disable=[
+                "parser",  # Not used (syntax parsing)
+                "ner",  # Not used (named entity recognition)
+                "tok2vec",  # Not used (token vectors)
+                "compound_splitter",  # Not used (compound word splitting)
+                "bunsetu_recognizer",  # Not used (phrase boundary detection)
+            ],
+        )
 
     def tokenize(self, text: str) -> List[TokenData]:
         """Tokenize text using SpaCy + GiNZA.

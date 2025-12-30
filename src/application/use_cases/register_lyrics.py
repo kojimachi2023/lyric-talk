@@ -7,8 +7,7 @@ from datetime import datetime
 from src.domain.models.lyric_token import LyricToken
 from src.domain.models.lyrics_corpus import LyricsCorpus
 from src.domain.models.reading import Reading
-from src.domain.repositories.lyric_token_repository import LyricTokenRepository
-from src.domain.repositories.lyrics_repository import LyricsRepository
+from src.domain.repositories.unit_of_work import UnitOfWork
 from src.domain.services.nlp_service import NlpService
 
 
@@ -18,18 +17,18 @@ class RegisterLyricsUseCase:
     def __init__(
         self,
         nlp_service: NlpService,
-        lyrics_repository: LyricsRepository,
-        lyric_token_repository: LyricTokenRepository,
+        unit_of_work: UnitOfWork,
     ):
         self.nlp_service = nlp_service
-        self.lyrics_repository = lyrics_repository
-        self.lyric_token_repository = lyric_token_repository
+        self.unit_of_work = unit_of_work
 
-    def execute(self, lyrics_text: str) -> str:
+    def execute(self, lyrics_text: str, artist=None, title=None) -> str:
         """Register lyrics and return corpus_id.
 
         Args:
             lyrics_text: Lyrics text to register
+            artist: (Optional) Artist name
+            title: (Optional) Song title
 
         Returns:
             corpus_id: ID of the registered or existing corpus
@@ -38,7 +37,7 @@ class RegisterLyricsUseCase:
         content_hash = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest()
 
         # Check if corpus already exists
-        existing_corpus = self.lyrics_repository.find_by_content_hash(content_hash)
+        existing_corpus = self.unit_of_work.lyrics_repository.find_by_content_hash(content_hash)
         if existing_corpus:
             return existing_corpus.lyrics_corpus_id
 
@@ -54,10 +53,12 @@ class RegisterLyricsUseCase:
             lyrics_corpus_id=corpus_id,
             content_hash=content_hash,
             created_at=datetime.now(),
+            artist=artist,
+            title=title,
         )
 
         # Save corpus
-        saved_corpus_id = self.lyrics_repository.save(corpus)
+        saved_corpus_id = self.unit_of_work.lyrics_repository.save(corpus)
 
         # Create LyricToken entities
         tokens = []
@@ -74,6 +75,6 @@ class RegisterLyricsUseCase:
             tokens.append(token)
 
         # Save tokens
-        self.lyric_token_repository.save_batch(tokens)
+        self.unit_of_work.lyric_token_repository.save_batch(tokens)
 
         return saved_corpus_id

@@ -1,0 +1,4 @@
+lyrics/**/*.json
+results/**/*.json
+*.txt
+results/**/*.png

@@ -16,11 +16,7 @@ from src.application.use_cases.match_text import MatchTextUseCase
 from src.application.use_cases.query_results import QueryResultsUseCase
 from src.application.use_cases.register_lyrics import RegisterLyricsUseCase
 from src.infrastructure.config.settings import Settings
-from src.infrastructure.database.duckdb_lyric_token_repository import (
-    DuckDBLyricTokenRepository,
-)
-from src.infrastructure.database.duckdb_lyrics_repository import DuckDBLyricsRepository
-from src.infrastructure.database.duckdb_match_repository import DuckDBMatchRepository
+from src.infrastructure.database.duckdb_unit_of_work import DuckDBUnitOfWork
 from src.infrastructure.database.schema import initialize_database
 from src.infrastructure.nlp.spacy_nlp_service import SpacyNlpService
 
@@ -85,16 +81,14 @@ def create_db_connection(settings: Settings) -> duckdb.DuckDBPyConnection:
     return initialize_database(settings.db_path_resolved)
 
 
-def create_register_use_case(
-    settings: Optional[Settings] = None,
-) -> RegisterLyricsUseCase:
-    """Create RegisterLyricsUseCase with dependencies.
+def get_settings_and_init_db(settings: Optional[Settings] = None) -> Settings:
+    """Get settings and initialize database schema.
 
     Args:
         settings: Application settings (uses default if None)
 
     Returns:
-        RegisterLyricsUseCase instance
+        Settings instance
     """
     if settings is None:
         settings = Settings()
@@ -103,117 +97,7 @@ def create_register_use_case(
     conn = create_db_connection(settings)
     conn.close()
 
-    # Initialize database schema
-    nlp_service = SpacyNlpService(model_name=settings.nlp_model)
-    lyrics_repo = DuckDBLyricsRepository(str(settings.db_path_resolved))
-    lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))
-
-    return RegisterLyricsUseCase(
-        nlp_service=nlp_service,
-        lyrics_repository=lyrics_repo,
-        lyric_token_repository=lyric_token_repo,
-    )
-
-
-def create_match_use_case(settings: Optional[Settings] = None) -> MatchTextUseCase:
-    """Create MatchTextUseCase with dependencies.
-
-    Args:
-        settings: Application settings (uses default if None)
-
-    Returns:
-        MatchTextUseCase instance
-    """
-    if settings is None:
-        settings = Settings()
-
-    # Initialize database schema
-    conn = create_db_connection(settings)
-    conn.close()
-
-    nlp_service = SpacyNlpService(model_name=settings.nlp_model)
-    lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))
-    match_repo = DuckDBMatchRepository(str(settings.db_path_resolved))
-
-    return MatchTextUseCase(
-        nlp_service=nlp_service,
-        lyric_token_repository=lyric_token_repo,
-        match_repository=match_repo,
-        max_mora_length=settings.max_mora_length,
-    )
-
-
-def create_query_use_case(settings: Optional[Settings] = None) -> QueryResultsUseCase:
-    """Create QueryResultsUseCase with dependencies.
-
-    Args:
-        settings: Application settings (uses default if None)
-
-    Returns:
-        QueryResultsUseCase instance
-    """
-    if settings is None:
-        settings = Settings()
-
-    # Initialize database schema
-    conn = create_db_connection(settings)
-    conn.close()
-
-    match_repo = DuckDBMatchRepository(str(settings.db_path_resolved))
-    lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))
-
-    return QueryResultsUseCase(
-        match_repository=match_repo,
-        lyric_token_repository=lyric_token_repo,
-    )
-
-
-def create_list_corpora_use_case(
-    settings: Optional[Settings] = None,
-) -> ListLyricsCorporaUseCase:
-    """Create ListLyricsCorporaUseCase with dependencies.
-
-    Args:
-        settings: Application settings (uses default if None)
-
-    Returns:
-        ListLyricsCorporaUseCase instance
-    """
-    if settings is None:
-        settings = Settings()
-
-    # Initialize database schema
-    conn = create_db_connection(settings)
-    conn.close()
-
-    lyrics_repo = DuckDBLyricsRepository(str(settings.db_path_resolved))
-    lyric_token_repo = DuckDBLyricTokenRepository(str(settings.db_path_resolved))
-
-    return ListLyricsCorporaUseCase(
-        lyrics_repository=lyrics_repo,
-        lyric_token_repository=lyric_token_repo,
-    )
-
-
-def create_list_runs_use_case(settings: Optional[Settings] = None) -> ListMatchRunsUseCase:
-    """Create ListMatchRunsUseCase with dependencies.
-
-    Args:
-        settings: Application settings (uses default if None)
-
-    Returns:
-        ListMatchRunsUseCase instance
-    """
-    if settings is None:
-        settings = Settings()
-
-    # Initialize database schema
-    conn = create_db_connection(settings)
-    conn.close()
-
-    match_repo = DuckDBMatchRepository(str(settings.db_path_resolved))
-
-    return ListMatchRunsUseCase(match_repository=match_repo)
+    return settings
 
 
 @corpus_app.command("list")
@@ -221,40 +105,44 @@ def corpus_list(
     limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of corpora to display"),
 ) -> None:
     """List all lyrics corpora."""
-    use_case = create_list_corpora_use_case()
+    settings = get_settings_and_init_db()
 
     try:
-        corpora = use_case.execute(limit=limit)
+        with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+            use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
+            corpora = use_case.execute(limit=limit)
 
-        if not corpora:
-            console.print("[yellow]No lyrics corpora found. Register some lyrics first.[/yellow]")
-            return
+            if not corpora:
+                console.print(
+                    "[yellow]No lyrics corpora found. Register some lyrics first.[/yellow]"
+                )
+                return
 
-        # Create Rich table
-        table = Table(title=f"Lyrics Corpora (最新 {len(corpora)} 件)")
-        table.add_column("ID", style="cyan", no_wrap=True)
-        table.add_column("Title", style="magenta")
-        table.add_column("Artist", style="green")
-        table.add_column("Tokens", justify="right", style="blue")
-        table.add_column("Preview", style="dim")
-        table.add_column("Created", style="dim")
+            # Create Rich table
+            table = Table(title=f"Lyrics Corpora (最新 {len(corpora)} 件)")
+            table.add_column("ID", style="cyan", no_wrap=True)
+            table.add_column("Title", style="magenta")
+            table.add_column("Artist", style="green")
+            table.add_column("Tokens", justify="right", style="blue")
+            table.add_column("Preview", style="dim")
+            table.add_column("Created", style="dim")
 
-        for corpus in corpora:
-            preview = (
-                corpus.preview_text[:50] + "..."
-                if len(corpus.preview_text) > 50
-                else corpus.preview_text
-            )
-            table.add_row(
-                corpus.lyrics_corpus_id,
-                corpus.title or "(no title)",
-                corpus.artist or "(unknown)",
-                str(corpus.token_count),
-                preview,
-                corpus.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            )
+            for corpus in corpora:
+                preview = (
+                    corpus.preview_text[:50] + "..."
+                    if len(corpus.preview_text) > 50
+                    else corpus.preview_text
+                )
+                table.add_row(
+                    corpus.lyrics_corpus_id,
+                    corpus.title or "(no title)",
+                    corpus.artist or "(unknown)",
+                    str(corpus.token_count),
+                    preview,
+                    corpus.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                )
 
-        console.print(table)
+            console.print(table)
 
     except Exception as e:
         console_err.print(f"[red]Error listing corpora: {e}[/red]")
@@ -266,36 +154,38 @@ def run_list(
     limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of runs to display"),
 ) -> None:
     """List all match runs."""
-    use_case = create_list_runs_use_case()
+    settings = get_settings_and_init_db()
 
     try:
-        runs = use_case.execute(limit=limit)
+        with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+            use_case = ListMatchRunsUseCase(unit_of_work=uow)
+            runs = use_case.execute(limit=limit)
 
-        if not runs:
-            console.print("[yellow]No match runs found. Run some matches first.[/yellow]")
-            return
+            if not runs:
+                console.print("[yellow]No match runs found. Run some matches first.[/yellow]")
+                return
 
-        # Create Rich table
-        table = Table(title=f"Match Runs (最新 {len(runs)} 件)")
-        table.add_column("Run ID", style="cyan", no_wrap=True)
-        table.add_column("Corpus ID", style="magenta", no_wrap=True)
-        table.add_column("Input Text", style="white")
-        table.add_column("Results", justify="right", style="blue")
-        table.add_column("Timestamp", style="dim")
+            # Create Rich table
+            table = Table(title=f"Match Runs (最新 {len(runs)} 件)")
+            table.add_column("Run ID", style="cyan", no_wrap=True)
+            table.add_column("Corpus ID", style="magenta", no_wrap=True)
+            table.add_column("Input Text", style="white")
+            table.add_column("Results", justify="right", style="blue")
+            table.add_column("Timestamp", style="dim")
 
-        for run in runs:
-            input_preview = (
-                run.input_text[:40] + "..." if len(run.input_text) > 40 else run.input_text
-            )
-            table.add_row(
-                run.run_id,
-                run.lyrics_corpus_id,
-                input_preview,
-                str(run.results_count),
-                run.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            )
+            for run in runs:
+                input_preview = (
+                    run.input_text[:40] + "..." if len(run.input_text) > 40 else run.input_text
+                )
+                table.add_row(
+                    run.run_id,
+                    run.lyrics_corpus_id,
+                    input_preview,
+                    str(run.results_count),
+                    run.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                )
 
-        console.print(table)
+            console.print(table)
 
     except Exception as e:
         console_err.print(f"[red]Error listing runs: {e}[/red]")
@@ -309,10 +199,14 @@ def register(
 ) -> None:
     """Register lyrics into the database."""
     lyrics_text = read_text_input(file, text)
-    use_case = create_register_use_case()
+    settings = get_settings_and_init_db()
 
     try:
-        corpus_id = use_case.execute(lyrics_text)
+        with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+            nlp_service = SpacyNlpService(model_name=settings.nlp_model)
+            use_case = RegisterLyricsUseCase(nlp_service=nlp_service, unit_of_work=uow)
+            corpus_id = use_case.execute(lyrics_text)
+            uow.commit()
         typer.echo(f"Successfully registered lyrics with corpus_id: {corpus_id}")
     except Exception as e:
         typer.echo(f"Error registering lyrics: {e}", err=True)
@@ -322,13 +216,15 @@ def register(
 @app.command()
 def match(
     corpus_id: Optional[str] = typer.Argument(
-        None, help="Lyrics corpus ID to match against (optional, will prompt if omitted)"
+        None,
+        help="Lyrics corpus ID to match against (optional, will prompt if omitted)",
     ),
     file: Optional[str] = typer.Argument(None, help="Path to input text file"),
     text: Optional[str] = typer.Option(None, "--text", "-t", help="Input text as string"),
 ) -> None:
     """Match text against lyrics."""
     input_text = read_text_input(file, text)
+    settings = get_settings_and_init_db()
 
     # If corpus_id is not provided, prompt for selection
     if corpus_id is None:
@@ -342,9 +238,10 @@ def match(
             raise typer.Exit(1)
 
         # Get list of corpora
-        list_use_case = create_list_corpora_use_case()
         try:
-            corpora = list_use_case.execute(limit=50)
+            with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+                list_use_case = ListLyricsCorporaUseCase(unit_of_work=uow)
+                corpora = list_use_case.execute(limit=50)
 
             if len(corpora) == 0:
                 console.print(
@@ -386,10 +283,16 @@ def match(
             raise typer.Exit(1)
 
     # Execute match with selected or provided corpus_id
-    use_case = create_match_use_case()
-
     try:
-        run_id = use_case.execute(input_text, corpus_id)
+        with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+            nlp_service = SpacyNlpService(model_name=settings.nlp_model)
+            use_case = MatchTextUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+                max_mora_length=settings.max_mora_length,
+            )
+            run_id = use_case.execute(input_text, corpus_id)
+            uow.commit()
         typer.echo(f"Successfully matched text with run_id: {run_id}")
     except Exception as e:
         typer.echo(f"Error matching text: {e}", err=True)
@@ -403,6 +306,8 @@ def query(
     ),
 ) -> None:
     """Query match results with Rich Tree display."""
+    settings = get_settings_and_init_db()
+
     # If run_id is not provided, prompt for selection
     if run_id is None:
         # Check if we're in a TTY (interactive terminal)
@@ -414,9 +319,10 @@ def query(
             raise typer.Exit(1)
 
         # Get list of runs
-        list_use_case = create_list_runs_use_case()
         try:
-            runs = list_use_case.execute(limit=50)
+            with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+                list_use_case = ListMatchRunsUseCase(unit_of_work=uow)
+                runs = list_use_case.execute(limit=50)
 
             if len(runs) == 0:
                 console.print(
@@ -455,68 +361,68 @@ def query(
             raise typer.Exit(1)
 
     # Execute query with selected or provided run_id
-    use_case = create_query_use_case()
-
     try:
-        results = use_case.execute(run_id)
+        with DuckDBUnitOfWork(str(settings.db_path_resolved)) as uow:
+            use_case = QueryResultsUseCase(unit_of_work=uow)
+            results = use_case.execute(run_id)
 
-        if results is None:
-            typer.echo(f"Error: Match run not found: {run_id}", err=True)
-            raise typer.Exit(1)
+            if results is None:
+                typer.echo(f"Error: Match run not found: {run_id}", err=True)
+                raise typer.Exit(1)
 
-        # Display results with Rich Tree
-        match_run = results.match_run
-        console.print(f"\n[bold cyan]Match Run: {match_run.run_id}[/bold cyan]")
-        console.print(f"[dim]Input Text:[/dim] {match_run.input_text}")
-        console.print(f"[dim]Timestamp:[/dim] {match_run.timestamp}")
-        console.print(f"[dim]Matches Found:[/dim] {len(results.items)}\n")
+            # Display results with Rich Tree
+            match_run = results.match_run
+            console.print(f"\n[bold cyan]Match Run: {match_run.run_id}[/bold cyan]")
+            console.print(f"[dim]Input Text:[/dim] {match_run.input_text}")
+            console.print(f"[dim]Timestamp:[/dim] {match_run.timestamp}")
+            console.print(f"[dim]Matches Found:[/dim] {len(results.items)}\n")
 
-        # Display summary if available
-        if results.summary:
-            console.print("[bold yellow]Summary:[/bold yellow]")
-            console.print(f"  Reconstructed Surface: {results.summary.reconstructed_surface}")
-            console.print(f"  Reconstructed Reading: {results.summary.reconstructed_reading}")
-            console.print(
-                f"  Stats: exact_surface={results.summary.stats.exact_surface_count}, "
-                f"exact_reading={results.summary.stats.exact_reading_count}, "
-                f"mora_combination={results.summary.stats.mora_combination_count}\n"
-            )
-
-        if len(results.items) == 0:
-            console.print("[yellow]No matches found in this run.[/yellow]")
-        else:
-            # Create Rich Tree for each match
-            for idx, item in enumerate(results.items, 1):
-                # Create tree for this match
-                tree = Tree(
-                    f"[bold green]Match {idx}: {item.match_type}[/bold green]",
-                    guide_style="dim",
+            # Display summary if available
+            if results.summary:
+                console.print("[bold yellow]Summary:[/bold yellow]")
+                console.print(f"  Reconstructed Surface: {results.summary.reconstructed_surface}")
+                console.print(f"  Reconstructed Reading: {results.summary.reconstructed_reading}")
+                console.print(
+                    f"  Stats: exact_surface={results.summary.stats.exact_surface_count}, "
+                    f"exact_reading={results.summary.stats.exact_reading_count}, "
+                    f"mora_combination={results.summary.stats.mora_combination_count}\n"
                 )
 
-                # Add input token info
-                input_branch = tree.add("[cyan]Input[/cyan]")
-                input_branch.add(f"{item.input.surface} [dim]({item.input.reading})[/dim]")
-
-                # Add matched lyrics tokens
-                tokens_branch = tree.add("[yellow]Matched Lyrics Tokens[/yellow]")
-                for token in item.chosen_lyrics_tokens:
-                    tokens_branch.add(
-                        f"{token.surface} [dim]([/dim]{token.reading}[dim])[/dim] "
-                        f"[dim]│ lemma: {token.lemma} │ pos: {token.pos}[/dim]"
+            if len(results.items) == 0:
+                console.print("[yellow]No matches found in this run.[/yellow]")
+            else:
+                # Create Rich Tree for each match
+                for idx, item in enumerate(results.items, 1):
+                    # Create tree for this match
+                    tree = Tree(
+                        f"[bold green]Match {idx}: {item.match_type}[/bold green]",
+                        guide_style="dim",
                     )
 
-                # Add mora trace details if available
-                if item.match_type == "mora_combination" and item.mora_trace:
-                    details_branch = tree.add("[cyan]Mora Trace[/cyan]")
-                    for trace_item in item.mora_trace.items:
-                        details_branch.add(
-                            f"Mora: {trace_item.mora} → "
-                            f"Token: {trace_item.source_token_id} "
-                            f"[dim](index: {trace_item.mora_index})[/dim]"
+                    # Add input token info
+                    input_branch = tree.add("[cyan]Input[/cyan]")
+                    input_branch.add(f"{item.input.surface} [dim]({item.input.reading})[/dim]")
+
+                    # Add matched lyrics tokens
+                    tokens_branch = tree.add("[yellow]Matched Lyrics Tokens[/yellow]")
+                    for token in item.chosen_lyrics_tokens:
+                        tokens_branch.add(
+                            f"{token.surface} [dim]([/dim]{token.reading}[dim])[/dim] "
+                            f"[dim]│ lemma: {token.lemma} │ pos: {token.pos}[/dim]"
                         )
 
-                console.print(tree)
-                console.print()  # Add spacing between matches
+                    # Add mora trace details if available
+                    if item.match_type == "mora_combination" and item.mora_trace:
+                        details_branch = tree.add("[cyan]Mora Trace[/cyan]")
+                        for trace_item in item.mora_trace.items:
+                            details_branch.add(
+                                f"Mora: {trace_item.mora} → "
+                                f"Token: {trace_item.source_token_id} "
+                                f"[dim](index: {trace_item.mora_index})[/dim]"
+                            )
+
+                    console.print(tree)
+                    console.print()  # Add spacing between matches
 
     except Exception as e:
         typer.echo(f"Error querying results: {e}", err=True)

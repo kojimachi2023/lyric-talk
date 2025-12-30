@@ -6,18 +6,11 @@ from src.domain.models.lyric_token import LyricToken
 from src.domain.models.match_result import MatchResult, MatchType
 from src.domain.models.match_run import MatchRun
 from src.domain.models.reading import Reading
-from src.infrastructure.database.duckdb_lyric_token_repository import (
-    DuckDBLyricTokenRepository,
-)
-from src.infrastructure.database.duckdb_match_repository import (
-    DuckDBMatchRepository,
-)
 
 
-def test_save_and_find_run(temp_db_with_corpus):
+def test_save_and_find_run(unit_of_work_with_corpus):
     """Test MatchRepository save and find run operations."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create test match run (aggregate)
     match_run = MatchRun(
@@ -30,22 +23,19 @@ def test_save_and_find_run(temp_db_with_corpus):
     )
 
     # Save match run (aggregate)
-    repo.save(match_run)
+    uow.match_repository.save(match_run)
 
     # Find match run by id
-    result = repo.find_by_id("run-001")
+    result = uow.match_repository.find_by_id("run-001")
     assert result is not None
-    assert result.input_text == "テスト"
-    assert result.config["max_mora_length"] == 5
-    assert result.results == []
+    assert result == match_run
 
 
-def test_save_and_find_run_with_results(temp_db_with_corpus):
+def test_save_and_find_run_with_results(unit_of_work_with_corpus):
     """Test saving and finding match run with results (aggregate)."""
-    db_path, corpus_id = temp_db_with_corpus
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create a token first (for foreign key)
-    token_repo = DuckDBLyricTokenRepository(str(db_path))
     token = LyricToken(
         lyrics_corpus_id=corpus_id,
         surface="テスト",
@@ -55,10 +45,9 @@ def test_save_and_find_run_with_results(temp_db_with_corpus):
         line_index=0,
         token_index=0,
     )
-    token_repo.save(token)
+    uow.lyric_token_repository.save(token)
 
     # Create match run with results (aggregate)
-    repo = DuckDBMatchRepository(str(db_path))
     match_result = MatchResult(
         input_token="テスト",
         input_reading="テスト",
@@ -77,20 +66,18 @@ def test_save_and_find_run_with_results(temp_db_with_corpus):
     )
 
     # Save aggregate
-    repo.save(match_run)
+    uow.match_repository.save(match_run)
 
     # Find aggregate by id
-    result = repo.find_by_id("run-001")
+    result = uow.match_repository.find_by_id("run-001")
     assert result is not None
     assert len(result.results) == 1
-    assert result.results[0].input_token == "テスト"
-    assert result.results[0].match_type == MatchType.EXACT_SURFACE
+    assert result == match_run
 
 
-def test_find_by_lyrics_corpus_id(temp_db_with_corpus):
+def test_find_by_lyrics_corpus_id(unit_of_work_with_corpus):
     """Test finding match runs by corpus ID."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create multiple match runs
     for i in range(3):
@@ -102,19 +89,18 @@ def test_find_by_lyrics_corpus_id(temp_db_with_corpus):
             config={"max_mora_length": 5},
             results=[],
         )
-        repo.save(match_run)
+        uow.match_repository.save(match_run)
 
     # Find runs by corpus_id
-    results = repo.find_by_lyrics_corpus_id(corpus_id)
+    results = uow.match_repository.find_by_lyrics_corpus_id(corpus_id)
     assert len(results) == 3
 
 
-def test_delete_run(temp_db_with_corpus):
+def test_delete_run(unit_of_work_with_corpus):
     """Test deleting a match run and its results."""
-    db_path, corpus_id = temp_db_with_corpus
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create a token first
-    token_repo = DuckDBLyricTokenRepository(str(db_path))
     token = LyricToken(
         lyrics_corpus_id=corpus_id,
         surface="テスト",
@@ -124,10 +110,9 @@ def test_delete_run(temp_db_with_corpus):
         line_index=0,
         token_index=0,
     )
-    token_repo.save(token)
+    uow.lyric_token_repository.save(token)
 
     # Create match run with results (aggregate)
-    repo = DuckDBMatchRepository(str(db_path))
     match_result = MatchResult(
         input_token="テスト",
         input_reading="テスト",
@@ -144,33 +129,31 @@ def test_delete_run(temp_db_with_corpus):
         config={"max_mora_length": 5},
         results=[match_result],
     )
-    repo.save(match_run)
+    uow.match_repository.save(match_run)
 
     # Verify they exist
-    assert repo.find_by_id("run-001") is not None
-    assert len(repo.find_by_id("run-001").results) == 1
+    assert uow.match_repository.find_by_id("run-001") is not None
+    assert len(uow.match_repository.find_by_id("run-001").results) == 1
 
     # Delete run
-    repo.delete("run-001")
+    uow.match_repository.delete("run-001")
 
     # Verify they're gone
-    assert repo.find_by_id("run-001") is None
+    assert uow.match_repository.find_by_id("run-001") is None
 
 
-def test_list_match_runs_empty(temp_db_with_corpus):
+def test_list_match_runs_empty(unit_of_work_with_corpus):
     """Test list_match_runs with empty database."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Empty database should return empty list
-    result = repo.list_match_runs(10)
+    result = uow.match_repository.list_match_runs(10)
     assert result == []
 
 
-def test_list_match_runs_single(temp_db_with_corpus):
+def test_list_match_runs_single(unit_of_work_with_corpus):
     """Test list_match_runs with single match run."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create and save match run
     match_run = MatchRun(
@@ -181,19 +164,17 @@ def test_list_match_runs_single(temp_db_with_corpus):
         config={"max_mora_length": 5},
         results=[],
     )
-    repo.save(match_run)
+    uow.match_repository.save(match_run)
 
     # List should return the run
-    result = repo.list_match_runs(10)
+    result = uow.match_repository.list_match_runs(10)
     assert len(result) == 1
-    assert result[0].run_id == "run-001"
-    assert result[0].input_text == "テスト"
+    assert result[0] == match_run
 
 
-def test_list_match_runs_multiple_ordered(temp_db_with_corpus):
+def test_list_match_runs_multiple_ordered(unit_of_work_with_corpus):
     """Test list_match_runs with multiple runs in descending timestamp order."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create runs with different timestamps
     run1 = MatchRun(
@@ -222,23 +203,21 @@ def test_list_match_runs_multiple_ordered(temp_db_with_corpus):
     )
 
     # Save in random order
-    repo.save(run1)
-    repo.save(run2)
-    repo.save(run3)
+    uow.match_repository.save(run1)
+    uow.match_repository.save(run2)
+    uow.match_repository.save(run3)
 
     # List should be in descending order (newest first)
-    result = repo.list_match_runs(10)
+    result = uow.match_repository.list_match_runs(10)
     assert len(result) == 3
-    assert result[0].run_id == "run-002"  # Newest
-    assert result[0].input_text == "新しいテキスト"
-    assert result[1].run_id == "run-003"  # Middle
-    assert result[2].run_id == "run-001"  # Oldest
+    assert result[0] == run2  # Newest
+    assert result[1] == run3  # Middle
+    assert result[2] == run1  # Oldest
 
 
-def test_list_match_runs_respects_limit(temp_db_with_corpus):
+def test_list_match_runs_respects_limit(unit_of_work_with_corpus):
     """Test list_match_runs respects the limit parameter."""
-    db_path, corpus_id = temp_db_with_corpus
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # Create 5 runs
     for i in range(5):
@@ -250,10 +229,10 @@ def test_list_match_runs_respects_limit(temp_db_with_corpus):
             config={},
             results=[],
         )
-        repo.save(run)
+        uow.match_repository.save(run)
 
     # Request only 3
-    result = repo.list_match_runs(3)
+    result = uow.match_repository.list_match_runs(3)
     assert len(result) == 3
     # Should get the 3 newest
     assert result[0].run_id == "run-004"
@@ -261,11 +240,9 @@ def test_list_match_runs_respects_limit(temp_db_with_corpus):
     assert result[2].run_id == "run-002"
 
 
-def test_list_match_runs_includes_results(temp_db_with_corpus):
+def test_list_match_runs_includes_results(unit_of_work_with_corpus):
     """Test list_match_runs includes match results in each run."""
-    db_path, corpus_id = temp_db_with_corpus
-    token_repo = DuckDBLyricTokenRepository(str(db_path))
-    repo = DuckDBMatchRepository(str(db_path))
+    uow, corpus_id = unit_of_work_with_corpus
 
     # For avoid foreign key constraint, create a token first
     token = LyricToken(
@@ -277,7 +254,7 @@ def test_list_match_runs_includes_results(temp_db_with_corpus):
         line_index=0,
         token_index=0,
     )
-    token_repo.save(token)
+    uow.lyric_token_repository.save(token)
 
     # Create run with results
     match_result = MatchResult(
@@ -295,10 +272,10 @@ def test_list_match_runs_includes_results(temp_db_with_corpus):
         config={},
         results=[match_result],
     )
-    repo.save(run)
+    uow.match_repository.save(run)
 
     # List should include results
-    result = repo.list_match_runs(10)
+    result = uow.match_repository.list_match_runs(10)
     assert len(result) == 1
     assert len(result[0].results) == 1
-    assert result[0].results[0].input_token == "テスト"
+    assert result[0].results[0] == match_result

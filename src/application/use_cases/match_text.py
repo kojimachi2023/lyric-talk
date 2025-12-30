@@ -6,8 +6,7 @@ from datetime import datetime
 from src.domain.models.match_result import MatchResult
 from src.domain.models.match_run import MatchRun
 from src.domain.models.reading import Reading
-from src.domain.repositories.lyric_token_repository import LyricTokenRepository
-from src.domain.repositories.match_repository import MatchRepository
+from src.domain.repositories.unit_of_work import UnitOfWork
 from src.domain.services.matching_strategy import MatchingStrategy
 from src.domain.services.nlp_service import NlpService
 
@@ -18,13 +17,11 @@ class MatchTextUseCase:
     def __init__(
         self,
         nlp_service: NlpService,
-        lyric_token_repository: LyricTokenRepository,
-        match_repository: MatchRepository,
+        unit_of_work: UnitOfWork,
         max_mora_length: int = 5,
     ):
         self.nlp_service = nlp_service
-        self.lyric_token_repository = lyric_token_repository
-        self.match_repository = match_repository
+        self.unit_of_work = unit_of_work
         self.max_mora_length = max_mora_length
 
     def execute(self, input_text: str, lyrics_corpus_id: str) -> str:
@@ -45,7 +42,7 @@ class MatchTextUseCase:
 
         # Create MatchingStrategy for this specific corpus
         matching_strategy = MatchingStrategy(
-            repository=self.lyric_token_repository,
+            repository=self.unit_of_work.lyric_token_repository,
             lyrics_corpus_id=lyrics_corpus_id,
             max_mora_length=self.max_mora_length,
         )
@@ -76,6 +73,6 @@ class MatchTextUseCase:
                 match_run.add_result(match_result)
 
         # Save the entire aggregate (MatchRun + results)
-        saved_run_id = self.match_repository.save(match_run)
+        saved_run_id = self.unit_of_work.match_repository.save(match_run)
 
         return saved_run_id

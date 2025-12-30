@@ -9,11 +9,7 @@ from src.application.use_cases.match_text import MatchTextUseCase
 from src.application.use_cases.query_results import QueryResultsUseCase
 from src.application.use_cases.register_lyrics import RegisterLyricsUseCase
 from src.infrastructure.config.settings import Settings
-from src.infrastructure.database.duckdb_lyric_token_repository import (
-    DuckDBLyricTokenRepository,
-)
-from src.infrastructure.database.duckdb_lyrics_repository import DuckDBLyricsRepository
-from src.infrastructure.database.duckdb_match_repository import DuckDBMatchRepository
+from src.infrastructure.database.duckdb_unit_of_work import DuckDBUnitOfWork
 from src.infrastructure.database.schema import initialize_database
 from src.infrastructure.nlp.spacy_nlp_service import SpacyNlpService
 
@@ -47,151 +43,155 @@ class TestFullPipeline:
         """Create NLP service."""
         return SpacyNlpService(model_name=settings.nlp_model)
 
-    @pytest.fixture
-    def lyrics_repository(self, temp_db):
-        """Create lyrics repository."""
-        return DuckDBLyricsRepository(temp_db)
-
-    @pytest.fixture
-    def lyric_token_repository(self, temp_db):
-        """Create lyric token repository."""
-        return DuckDBLyricTokenRepository(temp_db)
-
-    @pytest.fixture
-    def match_repository(self, temp_db):
-        """Create match repository."""
-        return DuckDBMatchRepository(temp_db)
-
-    @pytest.fixture
-    def register_use_case(self, nlp_service, lyrics_repository, lyric_token_repository):
-        """Create register lyrics use case."""
-        return RegisterLyricsUseCase(
-            nlp_service=nlp_service,
-            lyrics_repository=lyrics_repository,
-            lyric_token_repository=lyric_token_repository,
-        )
-
-    @pytest.fixture
-    def match_use_case(self, nlp_service, lyric_token_repository, match_repository, settings):
-        """Create match text use case."""
-        return MatchTextUseCase(
-            nlp_service=nlp_service,
-            lyric_token_repository=lyric_token_repository,
-            match_repository=match_repository,
-            max_mora_length=settings.max_mora_length,
-        )
-
-    @pytest.fixture
-    def query_use_case(self, match_repository, lyric_token_repository):
-        """Create query results use case."""
-        return QueryResultsUseCase(
-            match_repository=match_repository,
-            lyric_token_repository=lyric_token_repository,
-        )
-
-    def test_full_pipeline(self, register_use_case, match_use_case, query_use_case):
+    def test_full_pipeline(self, temp_db, nlp_service, settings):
         """Test full pipeline: register → match → query.
 
         This test verifies the end-to-end flow remains stable after DTO refactoring.
         QueryResultsUseCase now returns QueryResultsDto instead of raw domain models.
         """
-        # 1. Register lyrics
-        lyrics_text = "東京の空は青い\n桜が咲いている"
-        corpus_id = register_use_case.execute(lyrics_text)
+        with DuckDBUnitOfWork(temp_db) as uow:
+            # 1. Register lyrics
+            lyrics_text = "東京の空は青い\n桜が咲いている"
+            register_use_case = RegisterLyricsUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+            )
+            corpus_id = register_use_case.execute(lyrics_text)
+            uow.commit()
 
-        assert corpus_id is not None
-        assert corpus_id.startswith("corpus_")
+            assert corpus_id is not None
+            assert corpus_id.startswith("corpus_")
 
-        # 2. Match input text
-        input_text = "京都の青い皿いる？"
-        run_id = match_use_case.execute(input_text, corpus_id)
+            # 2. Match input text
+            input_text = "京都の青い皿いる？"
+            match_use_case = MatchTextUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+                max_mora_length=settings.max_mora_length,
+            )
+            run_id = match_use_case.execute(input_text, corpus_id)
+            uow.commit()
 
-        assert run_id is not None
-        assert run_id.startswith("run_")
+            assert run_id is not None
+            assert run_id.startswith("run_")
 
-        # 3. Query results - now returns QueryResultsDto
-        results = query_use_case.execute(run_id)
+            # 3. Query results - now returns QueryResultsDto
+            query_use_case = QueryResultsUseCase(unit_of_work=uow)
+            results = query_use_case.execute(run_id)
 
-        assert results is not None
-        # Verify DTO structure
-        assert results.match_run.run_id == run_id
-        assert results.match_run.input_text == input_text
-        assert results.match_run.lyrics_corpus_id == corpus_id
-        assert results.summary.reconstructed_reading == "キョウトノアオイサライル"
-        assert hasattr(results, "items"), "QueryResultsDto should have items field"
-        assert hasattr(results, "summary"), "QueryResultsDto should have summary field"
+            assert results is not None
+            # Verify DTO structure
+            assert results.match_run.run_id == run_id
+            assert results.match_run.input_text == input_text
+            assert results.match_run.lyrics_corpus_id == corpus_id
+            assert results.summary.reconstructed_reading == "キョウトノアオイサライル"
+            assert hasattr(results, "items"), "QueryResultsDto should have items field"
+            assert hasattr(results, "summary"), "QueryResultsDto should have summary field"
 
-        # Debug: Print results structure
-        print(f"\nDebug - Number of results: {len(results.items)}")
-        for idx, item in enumerate(results.items):
-            print(f"Result {idx}:")
-            print(f"  - input_token: {item.input.surface}")
-            print(f"  - match_type: {item.match_type}")
-            print(f"  - chosen_lyrics_tokens count: {len(item.chosen_lyrics_tokens)}")
+            # Debug: Print results structure
+            print(f"\nDebug - Number of results: {len(results.items)}")
+            for idx, item in enumerate(results.items):
+                print(f"Result {idx}:")
+                print(f"  - input_token: {item.input.surface}")
+                print(f"  - match_type: {item.match_type}")
+                print(f"  - chosen_lyrics_tokens count: {len(item.chosen_lyrics_tokens)}")
 
-        assert len(results.items) > 0
+            assert len(results.items) > 0
 
-        # For integration test, we verify the pipeline runs without errors
-        # Actual matching quality is tested in unit tests
-        # At least one result should exist (even if it's a NO_MATCH)
-        assert len(results.items) > 0
+            # For integration test, we verify the pipeline runs without errors
+            # Actual matching quality is tested in unit tests
+            # At least one result should exist (even if it's a NO_MATCH)
+            assert len(results.items) > 0
 
-    def test_no_match_scenario(self, register_use_case, match_use_case, query_use_case):
+    def test_no_match_scenario(self, temp_db, nlp_service, settings):
         """Test scenario where no matches are found.
 
         Verifies DTO structure is maintained even with no exact matches.
         """
-        # 1. Register lyrics
-        lyrics_text = "東京の空は青い"
-        corpus_id = register_use_case.execute(lyrics_text)
+        with DuckDBUnitOfWork(temp_db) as uow:
+            # 1. Register lyrics
+            lyrics_text = "東京の空は青い"
+            register_use_case = RegisterLyricsUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+            )
+            corpus_id = register_use_case.execute(lyrics_text)
+            uow.commit()
 
-        assert corpus_id is not None
+            assert corpus_id is not None
 
-        # 2. Match with completely different text
-        input_text = "大阪の海は緑色"
-        run_id = match_use_case.execute(input_text, corpus_id)
+            # 2. Match with completely different text
+            input_text = "大阪の海は緑色"
+            match_use_case = MatchTextUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+                max_mora_length=settings.max_mora_length,
+            )
+            run_id = match_use_case.execute(input_text, corpus_id)
+            uow.commit()
 
-        assert run_id is not None
+            assert run_id is not None
 
-        # 3. Query results - returns QueryResultsDto
-        results = query_use_case.execute(run_id)
+            # 3. Query results - returns QueryResultsDto
+            query_use_case = QueryResultsUseCase(unit_of_work=uow)
+            results = query_use_case.execute(run_id)
 
-        assert results is not None
-        assert results.match_run.run_id == run_id
-        assert hasattr(results, "items"), "QueryResultsDto should have items field"
+            assert results is not None
+            assert results.match_run.run_id == run_id
+            assert hasattr(results, "items"), "QueryResultsDto should have items field"
 
-    def test_duplicate_lyrics_registration(self, register_use_case):
+    def test_duplicate_lyrics_registration(self, temp_db, nlp_service):
         """Test that duplicate lyrics reuse existing corpus_id."""
-        # Register same lyrics twice
-        lyrics_text = "同じ歌詞のテスト"
+        with DuckDBUnitOfWork(temp_db) as uow:
+            register_use_case = RegisterLyricsUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+            )
 
-        corpus_id1 = register_use_case.execute(lyrics_text)
-        corpus_id2 = register_use_case.execute(lyrics_text)
+            # Register same lyrics twice
+            lyrics_text = "同じ歌詞のテスト"
 
-        # Should return the same corpus_id
-        assert corpus_id1 == corpus_id2
+            corpus_id1 = register_use_case.execute(lyrics_text)
+            uow.commit()
+            corpus_id2 = register_use_case.execute(lyrics_text)
 
-    def test_multiple_matches_in_query(self, register_use_case, match_use_case, query_use_case):
+            # Should return the same corpus_id
+            assert corpus_id1 == corpus_id2
+
+    def test_multiple_matches_in_query(self, temp_db, nlp_service, settings):
         """Test querying results with multiple matches.
 
         Verifies DTO structure handles multiple match results correctly.
         """
-        # Register lyrics with repeated words
-        lyrics_text = "空を見上げる 空が青い 空は広い"
-        corpus_id = register_use_case.execute(lyrics_text)
+        with DuckDBUnitOfWork(temp_db) as uow:
+            # Register lyrics with repeated words
+            lyrics_text = "空を見上げる 空が青い 空は広い"
+            register_use_case = RegisterLyricsUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+            )
+            corpus_id = register_use_case.execute(lyrics_text)
+            uow.commit()
 
-        assert corpus_id is not None
+            assert corpus_id is not None
 
-        # Match text that appears multiple times
-        input_text = "空を見る"
-        run_id = match_use_case.execute(input_text, corpus_id)
+            # Match text that appears multiple times
+            input_text = "空を見る"
+            match_use_case = MatchTextUseCase(
+                nlp_service=nlp_service,
+                unit_of_work=uow,
+                max_mora_length=settings.max_mora_length,
+            )
+            run_id = match_use_case.execute(input_text, corpus_id)
+            uow.commit()
 
-        assert run_id is not None
+            assert run_id is not None
 
-        # Query and verify multiple matches - returns QueryResultsDto
-        results = query_use_case.execute(run_id)
+            # Query and verify multiple matches - returns QueryResultsDto
+            query_use_case = QueryResultsUseCase(unit_of_work=uow)
+            results = query_use_case.execute(run_id)
 
-        assert results is not None
-        # Should have matches for both tokens
-        assert len(results.items) > 0
-        assert hasattr(results, "summary"), "QueryResultsDto should have summary field"
+            assert results is not None
+            # Should have matches for both tokens
+            assert len(results.items) > 0
+            assert hasattr(results, "summary"), "QueryResultsDto should have summary field"

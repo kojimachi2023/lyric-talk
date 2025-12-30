@@ -15,24 +15,26 @@ class TestListMatchRunsUseCase:
     def test_list_empty_runs(self):
         """Test listing when no match runs exist."""
         # Arrange
-        match_repo = Mock()
-        use_case = ListMatchRunsUseCase(match_repository=match_repo)
+        uow = Mock()
+        uow.match_repository = Mock()
+        use_case = ListMatchRunsUseCase(unit_of_work=uow)
 
         # Mock: no runs exist
-        match_repo.list_match_runs.return_value = []
+        uow.match_repository.list_match_runs.return_value = []
 
         # Act
         result = use_case.execute(limit=10)
 
         # Assert
         assert result == []
-        match_repo.list_match_runs.assert_called_once_with(10)
+        uow.match_repository.list_match_runs.assert_called_once_with(10)
 
     def test_list_single_run(self):
         """Test listing with a single match run."""
         # Arrange
-        match_repo = Mock()
-        use_case = ListMatchRunsUseCase(match_repository=match_repo)
+        uow = Mock()
+        uow.match_repository = Mock()
+        use_case = ListMatchRunsUseCase(unit_of_work=uow)
 
         # Mock data
         run = MatchRun(
@@ -51,7 +53,7 @@ class TestListMatchRunsUseCase:
                 )
             ],
         )
-        match_repo.list_match_runs.return_value = [run]
+        uow.match_repository.list_match_runs.return_value = [run]
 
         # Act
         result = use_case.execute(limit=10)
@@ -65,13 +67,14 @@ class TestListMatchRunsUseCase:
         assert result[0].input_text == "テストテキスト"
         assert result[0].results_count == 1
 
-        match_repo.list_match_runs.assert_called_once_with(10)
+        uow.match_repository.list_match_runs.assert_called_once_with(10)
 
     def test_list_multiple_runs_ordered(self):
         """Test listing multiple runs in correct order (most recent first)."""
         # Arrange
-        match_repo = Mock()
-        use_case = ListMatchRunsUseCase(match_repository=match_repo)
+        uow = Mock()
+        uow.match_repository = Mock()
+        use_case = ListMatchRunsUseCase(unit_of_work=uow)
 
         # Mock data: multiple runs with different timestamps
         run1 = MatchRun(
@@ -123,7 +126,7 @@ class TestListMatchRunsUseCase:
         )
 
         # Repository returns already sorted (most recent first)
-        match_repo.list_match_runs.return_value = [run2, run3, run1]
+        uow.match_repository.list_match_runs.return_value = [run2, run3, run1]
 
         # Act
         result = use_case.execute(limit=10)
@@ -138,26 +141,28 @@ class TestListMatchRunsUseCase:
         assert result[2].run_id == "run_1"
         assert result[2].results_count == 0
 
-        match_repo.list_match_runs.assert_called_once_with(10)
+        uow.match_repository.list_match_runs.assert_called_once_with(10)
 
     def test_list_respects_limit(self):
         """Test that the limit parameter is passed correctly to repository."""
         # Arrange
-        match_repo = Mock()
-        use_case = ListMatchRunsUseCase(match_repository=match_repo)
-        match_repo.list_match_runs.return_value = []
+        uow = Mock()
+        uow.match_repository = Mock()
+        use_case = ListMatchRunsUseCase(unit_of_work=uow)
+        uow.match_repository.list_match_runs.return_value = []
 
         # Act
         use_case.execute(limit=5)
 
         # Assert
-        match_repo.list_match_runs.assert_called_once_with(5)
+        uow.match_repository.list_match_runs.assert_called_once_with(5)
 
     def test_list_with_no_results(self):
         """Test listing runs that have no match results."""
         # Arrange
-        match_repo = Mock()
-        use_case = ListMatchRunsUseCase(match_repository=match_repo)
+        uow = Mock()
+        uow.match_repository = Mock()
+        use_case = ListMatchRunsUseCase(unit_of_work=uow)
 
         # Mock data: run with empty results
         run = MatchRun(
@@ -168,7 +173,7 @@ class TestListMatchRunsUseCase:
             config={},
             results=[],
         )
-        match_repo.list_match_runs.return_value = [run]
+        uow.match_repository.list_match_runs.return_value = [run]
 
         # Act
         result = use_case.execute(limit=10)
