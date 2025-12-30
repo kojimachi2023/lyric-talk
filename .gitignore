@@ -218,3 +218,6 @@ output.json
 # profile
 **/*.stats
 **/*.prof
+
+# serena
+.serena/
