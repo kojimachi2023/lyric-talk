@@ -207,4 +207,4 @@ uv run ruff check . --fix
 
 ## ライセンス
 
-[ライセンス情報を記載]
+MIT License

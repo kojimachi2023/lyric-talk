@@ -1,0 +1,29 @@
+name: CI for lyric-talk
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  uv-example:
+    name: python
+    runs-on: ubuntu-slim
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest -n auto
